@@ -1,0 +1,34 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+
+# Model artifacts (large binary files)
+models/
+mlartifacts/
+mlruns.db
+mlruns/
+
+# CatBoost temp files
+src/catboost/catboost_info/tmp/
+
+# Misc
+nul
+
+# Data (too large for GitHub — upload to Colab via Google Drive or file upload)
+data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/

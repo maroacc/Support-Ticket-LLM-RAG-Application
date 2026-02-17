@@ -1,0 +1,49 @@
+{
+  "model_version": "20260213_174605_category",
+  "model_type": "xgboost",
+  "metrics": {
+    "Account Management": {
+      "precision": 0.9615384615384616,
+      "recall": 1.0,
+      "f1-score": 0.9803921568627451,
+      "support": 3300.0
+    },
+    "Data Issue": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3307.0
+    },
+    "Feature Request": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3307.0
+    },
+    "Security": {
+      "precision": 1.0,
+      "recall": 0.9601569574403863,
+      "f1-score": 0.9796735448105944,
+      "support": 3313.0
+    },
+    "Technical Issue": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3273.0
+    },
+    "accuracy": 0.992,
+    "macro avg": {
+      "precision": 0.9923076923076923,
+      "recall": 0.9920313914880772,
+      "f1-score": 0.992013140334668,
+      "support": 16500.0
+    },
+    "weighted avg": {
+      "precision": 0.9923076923076923,
+      "recall": 0.992,
+      "f1-score": 0.9919971255517914,
+      "support": 16500.0
+    }
+  }
+}

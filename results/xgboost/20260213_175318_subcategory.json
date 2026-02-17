@@ -1,0 +1,169 @@
+{
+  "model_version": "20260213_175318_subcategory",
+  "model_type": "xgboost",
+  "metrics": {
+    "API": {
+      "precision": 0.19709208400646203,
+      "recall": 0.18856259659969088,
+      "f1-score": 0.19273301737756715,
+      "support": 647.0
+    },
+    "Access Control": {
+      "precision": 0.1792573623559539,
+      "recall": 0.2229299363057325,
+      "f1-score": 0.198722498225692,
+      "support": 628.0
+    },
+    "Authentication": {
+      "precision": 0.18989280245022971,
+      "recall": 0.18181818181818182,
+      "f1-score": 0.18576779026217227,
+      "support": 682.0
+    },
+    "Authorization": {
+      "precision": 0.18972332015810275,
+      "recall": 0.21207658321060383,
+      "f1-score": 0.20027816411682892,
+      "support": 679.0
+    },
+    "Billing": {
+      "precision": 0.19145802650957292,
+      "recall": 0.18950437317784258,
+      "f1-score": 0.19047619047619047,
+      "support": 686.0
+    },
+    "Bug": {
+      "precision": 0.19448698315467075,
+      "recall": 0.19874804381846636,
+      "f1-score": 0.19659442724458204,
+      "support": 639.0
+    },
+    "Compatibility": {
+      "precision": 0.17647058823529413,
+      "recall": 0.17017828200972449,
+      "f1-score": 0.17326732673267325,
+      "support": 617.0
+    },
+    "Compliance": {
+      "precision": 0.2064,
+      "recall": 0.19754977029096477,
+      "f1-score": 0.20187793427230047,
+      "support": 653.0
+    },
+    "Configuration": {
+      "precision": 0.21153846153846154,
+      "recall": 0.17335243553008595,
+      "f1-score": 0.19055118110236222,
+      "support": 698.0
+    },
+    "Corruption": {
+      "precision": 0.2120253164556962,
+      "recall": 0.18953323903818953,
+      "f1-score": 0.20014936519790888,
+      "support": 707.0
+    },
+    "Data Loss": {
+      "precision": 0.21247892074198987,
+      "recall": 0.1956521739130435,
+      "f1-score": 0.20371867421180276,
+      "support": 644.0
+    },
+    "Documentation": {
+      "precision": 0.20239880059970014,
+      "recall": 0.20801232665639446,
+      "f1-score": 0.20516717325227962,
+      "support": 649.0
+    },
+    "Encryption": {
+      "precision": 0.1800302571860817,
+      "recall": 0.1794871794871795,
+      "f1-score": 0.1797583081570997,
+      "support": 663.0
+    },
+    "Enhancement": {
+      "precision": 0.19472913616398244,
+      "recall": 0.1996996996996997,
+      "f1-score": 0.19718309859154928,
+      "support": 666.0
+    },
+    "Import/Export": {
+      "precision": 0.17375455650060753,
+      "recall": 0.2387312186978297,
+      "f1-score": 0.2011251758087201,
+      "support": 599.0
+    },
+    "Integration": {
+      "precision": 0.22818791946308725,
+      "recall": 0.25835866261398177,
+      "f1-score": 0.24233784746970777,
+      "support": 658.0
+    },
+    "License": {
+      "precision": 0.18272425249169436,
+      "recall": 0.16819571865443425,
+      "f1-score": 0.1751592356687898,
+      "support": 654.0
+    },
+    "New Feature": {
+      "precision": 0.21626297577854672,
+      "recall": 0.19142419601837674,
+      "f1-score": 0.20308692120227456,
+      "support": 653.0
+    },
+    "Performance": {
+      "precision": 0.1963276836158192,
+      "recall": 0.2102874432677761,
+      "f1-score": 0.20306793279766253,
+      "support": 661.0
+    },
+    "Subscription": {
+      "precision": 0.1819484240687679,
+      "recall": 0.18352601156069365,
+      "f1-score": 0.18273381294964028,
+      "support": 692.0
+    },
+    "Sync Error": {
+      "precision": 0.24045261669024046,
+      "recall": 0.25297619047619047,
+      "f1-score": 0.24655547498187091,
+      "support": 672.0
+    },
+    "UI/UX": {
+      "precision": 0.18552631578947368,
+      "recall": 0.203757225433526,
+      "f1-score": 0.19421487603305784,
+      "support": 692.0
+    },
+    "Upgrade": {
+      "precision": 0.18057921635434412,
+      "recall": 0.165625,
+      "f1-score": 0.17277913610431947,
+      "support": 640.0
+    },
+    "Validation": {
+      "precision": 0.18659420289855072,
+      "recall": 0.15036496350364964,
+      "f1-score": 0.16653193209377526,
+      "support": 685.0
+    },
+    "Vulnerability": {
+      "precision": 0.19718309859154928,
+      "recall": 0.1761006289308176,
+      "f1-score": 0.18604651162790697,
+      "support": 636.0
+    },
+    "accuracy": 0.19606060606060607,
+    "macro avg": {
+      "precision": 0.19630093287195519,
+      "recall": 0.19625808322852303,
+      "f1-score": 0.19559536023834936,
+      "support": 16500.0
+    },
+    "weighted avg": {
+      "precision": 0.19647832094880058,
+      "recall": 0.19606060606060607,
+      "f1-score": 0.19560036637739506,
+      "support": 16500.0
+    }
+  }
+}
