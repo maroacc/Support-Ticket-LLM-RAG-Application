@@ -40,7 +40,8 @@ def evaluate_predictions(y_true, y_pred, target_encoders: dict,
 def plot_confusion_matrix(y_true, y_pred, target_encoders: dict,
                           target_col: str = "category",
                           split: str = "test",
-                          save_dir: Path | None = None):
+                          save_dir: Path | None = None,
+                          subcat_to_cat: dict | None = None):
     """
     Plot and optionally save a confusion matrix heatmap.
 
@@ -51,12 +52,24 @@ def plot_confusion_matrix(y_true, y_pred, target_encoders: dict,
         target_col:       Which target ("category" or "subcategory").
         split:            Data split name (used in the title and filename).
         save_dir:         If provided, saves the figure as a PNG in this directory.
+        subcat_to_cat:    Optional dict mapping subcategory -> category. When provided,
+                          labels are prefixed with their category and sorted so that
+                          subcategories of the same category appear next to each other.
     """
     encoder = target_encoders[target_col]
     y_true_labels = encoder.inverse_transform(np.asarray(y_true).astype(int))
     y_pred_labels = encoder.inverse_transform(np.asarray(y_pred).astype(int))
 
     labels = list(encoder.classes_)
+
+    # Group subcategories by category when mapping is provided
+    if subcat_to_cat is not None:
+        label_map = {sub: f"{cat} — {sub}" for sub, cat in subcat_to_cat.items()}
+        labels = sorted(labels, key=lambda s: (subcat_to_cat.get(s, ""), s))
+        display_labels = [label_map.get(l, l) for l in labels]
+    else:
+        display_labels = labels
+
     cm = confusion_matrix(y_true_labels, y_pred_labels, labels=labels)
 
     # Scale figure size based on number of classes
@@ -65,7 +78,7 @@ def plot_confusion_matrix(y_true, y_pred, target_encoders: dict,
 
     sns.heatmap(
         cm, annot=True, fmt="d", cmap="Blues",
-        xticklabels=labels, yticklabels=labels, ax=ax,
+        xticklabels=display_labels, yticklabels=display_labels, ax=ax,
     )
 
     ax.set_xlabel("Predicted")

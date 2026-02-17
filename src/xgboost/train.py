@@ -12,7 +12,7 @@ from preprocessing import (preprocess, TFIDF_MAX_FEATURES, TEXT_COLS,
                            TOP_N_TAGS, ONE_HOT_COLS, LABEL_ENCODE_COLS,
                            NUMERIC_COLS, BINARY_COLS)
 from data_utils import load_data, split_data, DATA_PATH, RANDOM_SEED
-from evaluate import evaluate_model
+from evaluate import evaluate_model, plot_confusion_matrix
 from mlflow_utils import log_and_register
 
 
@@ -215,6 +215,25 @@ if __name__ == "__main__":
                                        target_encoders, target_col="subcategory", split="train")
 
     # ================================================================
+    # CONFUSION MATRICES
+    # ================================================================
+
+    plots_dir = MODELS_DIR / "latest_plots"
+    subcat_to_cat = dict(zip(df["subcategory"], df["category"]))
+    for target_col, model, X_split, y_split, split in [
+        ("category",    cat_model, X_test,     y_cat_test,  "test"),
+        ("category",    cat_model, X_train,    y_cat_train, "train"),
+        ("subcategory", sub_model, X_test_sub, y_sub_test,  "test"),
+        ("subcategory", sub_model, X_train_sub, y_sub_train, "train"),
+    ]:
+        y_pred = model.predict(X_split)
+        plot_confusion_matrix(
+            y_split, y_pred, target_encoders,
+            target_col=target_col, split=split, save_dir=plots_dir,
+            subcat_to_cat=subcat_to_cat if target_col == "subcategory" else None,
+        )
+
+    # ================================================================
     # FEATURE IMPORTANCE — diagnose what each model is using
     # ================================================================
 
@@ -272,6 +291,7 @@ if __name__ == "__main__":
         params=params,
         metrics=metrics,
         artifact_dir=version_dir,
+        plots_dir=plots_dir,
     )
 
     print(f"   To promote to production, run:")

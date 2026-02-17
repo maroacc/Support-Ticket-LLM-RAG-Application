@@ -19,15 +19,18 @@ help the model indentify the subcategory easily.
 
 ### Performance benchmark
 
-This shows the metrics for the run with the highest weighted F1 score for the subcategories. 
-As it can be seen on the table, the xgboost model for classifying the category performs really well
-with a weighted F1 score of almost one on the validation set. However, that is not he case for the subcategory model,
-where the weighted F1 score is only 20%. If we look at it in detail, the F1 score for all the subcategories is very similar
-to 20%. 20% is also the random probability of choosing the right subcategory given that we know the category. So at first
-glance it looks like the model is not learning the subcategory, only choosing it at random from the ones corresponding to the category. 
+The category model achieves 100% weighted F1 on the test set. However, the subcategory model only reaches ~20% weighted F1, with every individual subcategory scoring around 20%. Since each category has exactly 5 subcategories, 20% is exactly random chance (1/5).
 
+### Subcategory is not predictable
 
-ADD TABLE
+After investigating the poor subcategory performance, I conducted a thorough analysis (see `notebooks/subcategory_predictability.ipynb`) that shows the subcategory labels were most likely randomly assigned within each category during data generation. The evidence:
+
+1. **Text content is identical** across subcategories within a category — the same templates are used regardless of subcategory.
+2. **Chi-squared tests** on all structured features show no significant association with subcategory (only 2/70 tests significant, consistent with random noise at p<0.05).
+3. **A Naive Bayes classifier on TF-IDF** achieves exactly chance-level accuracy (~20%) for every category.
+4. **Normalized Mutual Information** between all features and subcategory is effectively zero (~0.0001).
+
+This means no model — regardless of architecture, hyperparameters, or feature engineering — can predict subcategory better than 20%. The information simply does not exist in the dataset. The subcategory model's performance is at its theoretical ceiling, not a failure of the modeling approach.
 
 
 ### Feature importance
@@ -40,37 +43,39 @@ the category.
 
 ## Deep Learning
 
-### Description
+### Note on subcategory prediction
 
-                                                                                                                                                                                   
-  Why DistilBERT (not full BERT)?
-  - 40% smaller and 60% faster than BERT-base while retaining ~97% of its performance. For ticket classification, that's a good trade-off — you don't need the full model's         
-  capacity.                                                                                                                                                                         
-                                                                                                                                                                                    
-  Why dual-input (text + structured)?                                                                                                                                               
-  - Ticket text carries the semantic meaning of the issue, but structured fields like priority, severity, customer_tier, and product provide signal that's hard to extract from text
-   alone. Combining both gives the model more to work with than either branch alone.
+As shown in the analysis above, subcategory labels are not predictable from any feature in this dataset. The DistilBERT model will therefore not be able to predict subcategories either. However, in a real-world scenario where ticket texts actually differ between subcategories, this architecture would be well-suited for the task — text contains the richest semantic signal for fine-grained classification, which is exactly what transformer models excel at.
 
-  Why fine-tune rather than freeze BERT?
-  - Support ticket language (error logs, stack traces, technical jargon) differs from BERT's general pretraining corpus. Fine-tuning lets the encoder adapt to your domain.
+### Architecture
 
-  Why two output heads instead of two separate models?
-  - Category and subcategory are related tasks. Shared representations in the merged layer let the model learn features useful for both, and training is more efficient than
-  maintaining two pipelines.
+The model is a dual-input classifier that combines text understanding with structured features:
 
-  Why 70/30 loss weighting toward subcategory?
-  - Subcategory is more granular and harder to predict. Giving it more weight in the loss focuses optimization on the harder task. Category likely benefits enough from the shared
-  representation.
+```
+input_ids + attention_mask ──→ DistilBERT ──→ [CLS] ──→ Dense(128) ──┐
+                                                                      ├──→ Dense(128) ──→ Category head (5 classes)
+structured features ──→ Dense(128) ──→ Dense(128) ─────────────────── ┘         └──→ Subcategory head (25 classes)
+```
 
-  Why early stopping?
-  - BERT models overfit quickly on small-to-medium datasets. Early stopping with patience=3 prevents that without needing to guess the right number of epochs.
+**Text branch**: Tokenized ticket text (subject + description + error_logs + stack_trace) is passed through DistilBERT. The [CLS] token embedding (768 dimensions) is projected down to 128 dimensions via a dense layer.
 
+**Structured branch**: Tabular features (one-hot encoded, label-encoded, numeric, and binary columns) are processed through a two-layer MLP (128 units each).
+
+**Merge**: Both branches are concatenated (256 dims) and passed through a shared dense layer (128 units) before feeding into two independent classification heads — one for category, one for subcategory.
+
+Dropout (0.3) is applied after every dense layer.
+
+### Design decisions
+
+- **DistilBERT over full BERT**: 40% smaller and 60% faster while retaining ~97% of BERT's performance. For ticket classification, the full model's capacity is not needed.
+- **Dual-input (text + structured)**: Ticket text carries semantic meaning, but structured fields like priority, severity, and product provide signal that's hard to extract from text alone.
+- **Two output heads instead of two separate models**: Category and subcategory are related tasks. Shared representations let the model learn features useful for both, and training is more efficient than maintaining two pipelines.
+- **70/30 loss weighting toward subcategory**: Subcategory is more granular and harder to predict. Giving it more weight focuses optimization on the harder task.
+- **Early stopping (patience=3)**: BERT models overfit quickly on small-to-medium datasets. Early stopping prevents that without needing to manually tune the number of epochs.
 
 ### Performance benchmark
 
-### Feature importance
-
-### Error analysis
+Given the randomly assigned subcategory labels, the subcategory head is expected to perform at chance level (~20%). The category head should still achieve high accuracy since the structured features carry strong signal for category prediction.
 
 
 # Experiment Tracking and Model Lineage

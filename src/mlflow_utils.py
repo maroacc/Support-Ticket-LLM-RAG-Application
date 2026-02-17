@@ -19,6 +19,7 @@ def log_and_register(
     params: dict,
     metrics: dict,
     artifact_dir: Path,
+    plots_dir: Path | None = None,
 ):
     """
     Log params/metrics/artifacts to MLflow and register a model version.
@@ -49,6 +50,10 @@ def log_and_register(
 
         # Log the artifact directory
         mlflow.log_artifacts(str(artifact_dir), artifact_path="model")
+
+        # Log plots as a separate top-level artifact folder
+        if plots_dir is not None and plots_dir.exists():
+            mlflow.log_artifacts(str(plots_dir), artifact_path="plots")
 
         run_id = run.info.run_id
 

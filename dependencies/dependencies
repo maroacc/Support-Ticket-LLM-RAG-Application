@@ -16,3 +16,4 @@ xgboost
 catboost
 fastapi
 uvicorn
+seaborn

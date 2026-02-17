@@ -427,7 +427,8 @@ if __name__ == "__main__":
     )
 
     # 8 — Plot confusion matrices for all evaluation combinations
-    plots_dir = MODELS_DIR / "latest" / "plots"
+    plots_dir = MODELS_DIR / "latest_plots"
+    subcat_to_cat = dict(zip(df["subcategory"], df["category"]))
     for target_col, y_true, y_pred, split in [
         ("category",    splits["test"]["y_cat"],  cat_test_preds,  "test"),
         ("category",    splits["train"]["y_cat"], cat_train_preds, "train"),
@@ -437,6 +438,7 @@ if __name__ == "__main__":
         plot_confusion_matrix(
             y_true, y_pred, target_encoders,
             target_col=target_col, split=split, save_dir=plots_dir,
+            subcat_to_cat=subcat_to_cat if target_col == "subcategory" else None,
         )
 
     # 9 — Save model weights and encoder artifacts to disk
@@ -456,6 +458,7 @@ if __name__ == "__main__":
         params=params,
         metrics=metrics,
         artifact_dir=version_dir,
+        plots_dir=plots_dir,
     )
 
     print(f"\n   Best epoch: {best_epoch}")
