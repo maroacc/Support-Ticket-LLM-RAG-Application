@@ -37,7 +37,7 @@ EXPERIMENT_NAME = "bert-ticket-classifier"
 MLF_MODEL_NAME  = "bert-ticket-classifier"
 
 BATCH_SIZE      = 32
-EPOCHS          = 20
+EPOCHS          = 10
 PATIENCE        = 3         # early stopping: stop if val loss doesn't improve for this many epochs
 LEARNING_RATE   = 2e-5      # standard fine-tuning LR for BERT-family models (small to avoid catastrophic forgetting)
 CAT_LOSS_W      = 0.3       # weight for category loss in the combined objective
