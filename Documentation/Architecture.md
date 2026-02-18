@@ -1,93 +1,243 @@
 # Architecture Documentation
 
 This document describes the architecture choices for the intelligent support system.
-Since a real production solution requires a great amount of time to implement, this document describes both the
-ideal and the implemented solution, explaining the design choices and compromises.
+Since a real production solution requires significant time and infrastructure to implement, this document
+describes both the ideal production architecture and the implemented solution, explaining the
+design choices and compromises made.
+
+
 
 ## Ideal Architecture
 
-The ideal architecture is a system that can respond to the following requirements :
-- Support of training and versioning of machine learning models
-- Support of real-time inference
+The ideal architecture must satisfy two main requirements:
+- Training and versioning of machine learning models
+- Real-time inference at ticket creation time
 
-For the first point, we need to store historical ticket data and transform it to feed it
-into ML models and of course store the machine learning models. Since this will be done by AI Engineers / Data Scientists during the day who do not need ultra-fast responses, or it can be done in batches
-at night to retrain production models with new data, the architecture does not need very fast responses, but it does need to be able to manage
-very large volumes of data.
+For model training, we need to store historical ticket data, transform it into features, run ML
+experiments, and store the resulting models. This work is done by AI Engineers and Data Scientists
+during business hours, or as scheduled batch jobs at night to retrain production models on fresh data.
+The training infrastructure does not need ultra-low latency, but it does need to handle very large
+data volumes reliably.
 
-On the other hand, for inference we do need quick response times, but we do not manage large amounts of data.
-However, the amount of new tickets per day is +500, which makes around 1 ticket per minute. That is not very high concurrency, 
-so that means we don't have to chose ultra performant solutions for real time. However, if the volume of tickets augmented,
-then we might need to adapt and look for other solutions. 
+For inference, the requirements are the opposite: low latency is needed, but data volume per request is
+small. 
 
-The chosen schema is therefore the following : 
+The chosen schema is the following:
 
-![schema](Documentation\images\Architecture.png)
+![schema](images/Architecture.png)
 
-Disclaimer : The particular technologies chosen are an example. However, it is impossible to
-properly choose tools without knowing budget limitations, the compostion of the team, technologies that are already being
-used in the company, security and data protection requirements, etc. In a real use case,
-all these variables should be analyzed before making a decision.
+Disclaimer: The technologies named below are examples. In practice, the right choices
+depend on budget, team composition, technologies already in use, and security and compliance
+requirements. All these variables should be analyzed before committing to a specific stack.
+
 
 
 ### Ticket System
-This is the support ticket application where the tickets are created.
+
+The support ticket application where customers and agents create and manage tickets. 
 
 ### Operational Database
 
-This is where the ticket system stores its data. It stores all the ticket and client information
-needed for the application to run.
+The ticket system's current database. It stores all current ticket and customer records. I assume it
+already exists in the system and it is probably a standard relational database such as PostgreSQL.
 
 ### Data Lake
-Historical data is stored raw in a Data Lake to be later used for model training. In addition, everyday
-new ticket data is collected from the Operational Database and stored in For this technology
-I chose Databricks because it can handle very large volumes of data, it is a ML first technology and it is very flexible and is integrated with MLFlow. I compared it to Snowflake but
-Snowflake is more for structured data (although it also supports semi-structured), it is better for streaming with ____ . Snowflake is also more limited for ML. The compromise is that
-it is harder to set up and maintain.
-Also in the data lake is where the data quality controls start, with data stewards having access to it to
-explore raw data.
 
-### Offline feature store
+Historical ticket data is stored raw in a Data Lake for use in model training. Every day, new
+records are collected from the Operational Database and added here. Data quality monitoring begins
+at this layer, with data stewards able to control the raw data.
 
-There needs to be place where we store the features needed to train the model and also for analytic purposes. This is processed and clean data.
-For this I chose the databricks feature store because of its integration with databricks. However there are other popular feature store
-solutions like fever and tecton. Feast is open source and doesnt have vendor lock in but it needs more infrastructure management. tecton is__.
+For this layer I chose Databricks because it can handle very large data volumes, it is an ML-first
+platform, it integrates natively with MLflow, and it supports both batch and streaming workloads through
+Delta Lake. I compared it to Snowflake, but Snowflake is more limited for ML experimentation and
+custom Python workflows. The trade-off with Databricks is higher operational complexity and setup cost.
+
+### Offline Feature Store
+
+The offline feature store stores processed, engineered features derived from the raw data lake. They are clean,
+versioned, and ready for model training and BI analytics. It separates feature computation from model
+training, enabling feature reuse across experiments and teams.
+
+For this I chose the Databricks Feature Store for its native integration with the data lake and
+MLflow. However, some alternative options could be:
+
+- Feast : open source with no vendor lock-in, but requires more infrastructure management.
+- Tecton : a managed, enterprise-grade platform with real-time serving capabilities and a good
+  developer experience, but comes with higher cost and vendor lock-in.
+
+This data is accessed both by training pipelines and by BI tools for reporting on business metrics
+(resolution times, satisfaction drivers, agent performance, etc.).
+
+### Model Registry and Experiment Tracking
+
+This component has two purposes: recording all information about each training run (metrics,
+parameters, artifacts), and managing model versions with clear lifecycle states (staging, production,
+archived).
+
+For this I chose MLflow because it is open source, integrates natively with
+Databricks, and supports the full model lifecycle : experiment tracking, artifact storage, model
+registry, and production promotion through aliases. The API loads whichever model version carries the
+`"production"` alias at startup, making deployment and training independent.
+
+### API Server
+
+The ticket system calls the API server when a new ticket is created to receive:
+1. A predicted category (from the classification model)
+2. Similar past tickets and suggested resolutions (from the RAG system)
+
+All information needed for inference is assumed to be present in the ticket at creation time.
+However, if that wasn't the case, the API could query the operational database for supplementary data, 
+or the online feature store for pre-calculated features.
+
+With ~500 new tickets per day (roughly one per minute), the concurrency is low enough that a
+standard Python API is more than sufficient. Therefore, I chose FastAPI + Uvicorn because
+it is easy to set up, well-suited for this scale, automatically generates OpenAPI documentation, and uses Python,
+the same language as the ML code.
+If load increased, additional Uvicorn workers could be added.
 
 
-This information will be accessed both by models during training and by BI tools
-for analytic purposes.
+### Online Feature Store
 
-### Model Registry and Experiment tracking
+This is where pre-computed data needed for real-time inference is stored. It has two distinct
+responsibilities.
 
-This component does 2 things. On the one hand it stores all the information related to the training 
-of models, like the metrics and parameters. And on the other hand it stores the different models stating their versions. 
-It also marks what model is the production model and what models belong to the test environment.
+#### Vector Embeddings (Semantic Search)
 
-### Api Server
-The ticket system will call the api server to get suggested solutions and similar tickets for the new ticket created. 
-I assume all information needed for the model inference will be provided in the ticket. However, if this wasnt the 
-case it would maybe have to connect to the operational database to get some information. Or for example if there were calculated fields it could connect
-to the online feature store to access them quickly.
-For the solution I chose uvicorn + fast api because it is very easy to set up and maintain, and it is vquite a small API that will only be accessed by the ticket system for
-+500 tickets a day, so a backend in python is good enough. Even if it scaled we could just use more uvicorn workers. and fast API is very fast and has automatic documentation.
+Every historical ticket is encoded into a dense vector embedding. At inference time, the new ticket
+is embedded and its vector is compared against all stored vectors to find the most semantically similar
+past tickets, without re-processing the full dataset.
 
-### Online feature store
-This is where we store data that is gonna be needed by our intelligent system for inference in real time. It could store precalculated features needed for the ML model like previous_tickets, 
-but we don't use it for the moment we don't use it for our model. So it's gonna store precalculated data needed for the retrieval system. It is gonna store the precalculated embeddings for the
-semantic search and it is going to store the knowledge graph. 
-For these solutions, I am assuming that the team is big enough and has the knowledge to maintain a Graph database and a vector database. The reason to choose these solutions when we
-already have an operational database and a data lake is that these databases are optimized for this type of data. For example, a Graph database like Neo4j will first of all be faster to call
-to find all relationships than postgre and a lot better than mongoDB with all the joins, which is very necessary to find real time data. The disadvantage is that it will require synchronizing with the operational database for
-it to have all the updated info. And Neo4j is relatively simple to maintain because it can be in the cloud. If the teams is not ready to maintain it, they could just call the operational database and if it too slow, they can show the proposed solutions only to the agent and not to the person
-creating the ticket, so it would have more time to get all the data and would only be semi real-time. For the vector database, i would highly recommend it because it will be a lot faster to calculate the cosine simmilarity
-between all the tickets. And since at every call we would have to calculate the cosine simmilarity with the whole database and this will only increase with time.  
-For vector database we can choose pgvector if we are already using posgre and will only use it for this because it requires kinimal installation and maintenance. Or if not ____.
-If we needed to precompute features then I would add redis to the mix to store information like for example the amount of times a user has created a ticket in the last month that can be used in real time to precipute.
+Vector database options:
+- pgvector : a PostgreSQL extension for storing and querying embeddings. A low-overhead option if
+  PostgreSQL is already in use and scale is manageable.
+- Pinecone or Qdrant : managed or self-hosted vector databases purpose-built for this. It could be
+  recommended concurrency increased.
+
+#### Knowledge Graph (Structured Relationships)
+
+Maps relationships between entities: Products ↔ Modules ↔ Error Codes ↔ Historical Tickets ↔
+Categories. This lets the retrieval system return results that share the same product, module, or error
+codes as the incoming ticket.
+
+Neo4j (managed cloud
+) is well-suited for multi-hop relationship queries that would require many
+expensive joins in a relational database. If the team is not ready to operate a graph database, the
+operational database can serve, although it would be less performant. 
+
 
 ### Orchestration
-The orchestration to retrain the model everynight will be done in Airflow
-because it can be very easily integrated with python ad because_________.
 
-    
+Orchestration is needed for retraining workflows at nighttime, for collecting new data from the operational database
+and for regenerating features. I chose Airflow because it integrates naturally with Python,
+is open source, and provides built-in retry handling, alerting, and a UI
+for monitoring pipeline runs. Since the workflow is DAG-based, it is clear and reproducible.
 
-ADD CI/CD DEPLOYMENT!!!!! AND CLOUD PROVIDER!!!
+### CI/CD and Deployment
+
+A complete production system requires a CI/CD pipeline and container-based deployment.
+
+Containerization: All services (API server, RAG pipeline, training jobs) are packaged as Docker
+images to guarantee consistent behavior across environments. A `docker-compose.yml` can orchestrate
+the API and supporting services locally. In production, Kubernetes (EKS or GKE) provides horizontal
+scaling, health checks, and rolling deployments.
+
+CI/CD pipeline: Using GitHub Actions, every push to the main branch triggers:
+1. Linting and unit tests
+2. Model evaluation against a validation set
+3. Docker image build and push to a container registry
+4. Deployment to staging, with a manual promotion gate to production
+
+Cloud provider: AWS :
+- S3 : data lake raw storage
+- Databricks on AWS : feature engineering and model training
+- ECS / EKS : API container deployment
+- ECR : Docker image registry
+- CloudWatch : monitoring, alerting, and log aggregation
+
+GCP (Vertex AI) and Azure (Azure ML) are also valid alternatives depending on the
+organization's existing cloud solutions.
+
+## Implemented Solution
+
+Given the time constraints of this assessment, the implemented system uses a simplified architecture
+that preserves all the core ML logic while replacing infrastructure-heavy components with lightweight
+local equivalents.
+
+### Compromises
+
+- Operational Database (PostgreSQL) -> Raw JSON file (`data/support_tickets.json`)
+- Data Lake (Databricks) -> Local filesystem
+- Offline Feature Store -> In-memory DataFrames during training
+- Cloud Model Registry -> MLflow with SQLite backend (`mlruns.db`) 
+- Vector Database (Pinecone / pgvector) -> NumPy matrix loaded in memory (`data/rag/embeddings.npy`)
+- Graph Database (Neo4j) -> Flat JSON file (`data/rag/knowledge_graph.json`)
+- Orchestration (Airflow) -> Manual Python scripts
+- Container deployment (Docker / Kubernetes) -> Local `uvicorn` process
+
+
+
+### Classification Models (`src/xgboost/`, `src/catboost/`, `src/bert/`)
+
+Three classifiers are implemented for predicting ticket category and subcategory.
+
+XGBoost and CatBoost follow a cascaded prediction strategy: a first model predicts the category,
+and its class probability outputs are appended as additional features before the second model predicts
+the subcategory. This lets the subcategory model condition on category information without being
+constrained to a rigid hierarchy.
+
+DistilBERT is a dual-input model combining a frozen DistilBERT text encoder with a structured
+feature MLP. Both branches are concatenated and passed through a shared layer before feeding into two
+independent classification heads — one for category, one for subcategory. DistilBERT weights are kept
+frozen (not fine-tuned) to reduce training time on CPU. See `Model.md` for full architecture details,
+performance benchmarks, and analysis.
+
+
+
+### RAG Solution Finder (`src/rag/`)
+
+A hybrid retrieval system that combines two signals to find and rank similar historical tickets.
+
+Step 1 — Semantic similarity search
+
+All historical tickets are encoded offline using `sentence-transformers/all-MiniLM-L6-v2` (384
+dimensions, L2-normalized). The resulting matrix is saved to `data/rag/embeddings.npy` and loaded into
+memory at startup. At query time, the new ticket is embedded with the same model and compared against
+all stored vectors via dot product (equivalent to cosine similarity under L2 normalization).
+
+Step 2 — Structured field matching
+
+Each historical ticket has a corresponding entry in `data/rag/knowledge_graph.json` storing its
+product, product version, module, category, subcategory, and error codes extracted via regex from the
+error logs. The new ticket's fields are compared against the top candidates from step 1 to compute a
+structured overlap ratio.
+
+Step 3 — Score fusion and re-ranking
+
+Both signals are combined into a final score and the results are re-sorted:
+
+```
+final_score = 0.6 × semantic_similarity + 0.4 × field_match_ratio
+```
+
+Semantic similarity is weighted higher as the primary signal; structured matching acts as a
+confirmation boost for results that also share product, module, or error context.
+
+
+
+### MLflow Tracking (`src/mlflow_config.py`, `src/mlflow_utils.py`)
+
+All training runs are logged to a local SQLite database (`mlruns.db`). Each model is registered in the
+MLflow Model Registry and promoted to production via a `"production"` alias. The API resolves the alias
+at startup and loads the corresponding artifacts (model files and encoders) from `mlartifacts/`.
+
+### FastAPI + Uvicorn API (`src/api/`)
+
+A REST API with two endpoints:
+
+- `POST /predict` : accepts a ticket JSON body, preprocesses it, runs the production model, and
+  returns predicted `category` and `subcategory`.
+- `POST /train`
+
+The production model (XGBoost by default, swappable to CatBoost) is loaded from MLflow at startup.
+Both model types are supported transparently: CatBoost is auto-detected from the saved encoder
+metadata, and the appropriate preprocessing path is selected accordingly.
