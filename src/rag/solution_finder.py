@@ -46,12 +46,11 @@ def _compare_fields(new_ticket: dict, graph_entry: dict) -> dict:
       - product_version : exact match
       - product_module  : exact match
       - category        : exact match
-      - subcategory     : exact match
       - error_codes     : any overlap between the two sets
 
     Returns a dict with:
       - matches     : dict of field_name -> bool (True if they match)
-      - match_count : how many fields matched (0-6)
+      - match_count : how many fields matched (0-5)
       - match_ratio : match_count / total fields checked
     """
     # Extract the new ticket's error codes from its error_logs
@@ -63,7 +62,6 @@ def _compare_fields(new_ticket: dict, graph_entry: dict) -> dict:
         "product_version": new_ticket.get("product_version", "") == graph_entry.get("product_version", ""),
         "product_module":  new_ticket.get("product_module", "") == graph_entry.get("product_module", ""),
         "category":        new_ticket.get("category", "") == graph_entry.get("category", ""),
-        "subcategory":     new_ticket.get("subcategory", "") == graph_entry.get("subcategory", ""),
         "error_codes":     bool(new_error_codes & similar_error_codes) if new_error_codes else False,
     }
 

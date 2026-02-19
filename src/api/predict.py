@@ -61,10 +61,13 @@ def load_production_model(model_name: str = "xgboost-ticket-classifier"):
     artifact_dir = Path(client.download_artifacts(run_id, "model"))
 
     # Load the individual joblib files
-    _category_model    = joblib.load(artifact_dir / "category_model.joblib")
-    _subcategory_model = joblib.load(artifact_dir / "subcategory_model.joblib")
-    _feature_encoders  = joblib.load(artifact_dir / "feature_encoders.joblib")
-    _target_encoders   = joblib.load(artifact_dir / "target_encoders.joblib")
+    _category_model   = joblib.load(artifact_dir / "category_model.joblib")
+    _feature_encoders = joblib.load(artifact_dir / "feature_encoders.joblib")
+    _target_encoders  = joblib.load(artifact_dir / "target_encoders.joblib")
+
+    has_subcategory = _feature_encoders.get("has_subcategory_model", True)
+    subcategory_path = artifact_dir / "subcategory_model.joblib"
+    _subcategory_model = joblib.load(subcategory_path) if (has_subcategory and subcategory_path.exists()) else None
 
     # Auto-detect model type
     _model_type = "catboost" if "cat_feature_names" in _feature_encoders else "xgboost"
@@ -217,6 +220,9 @@ def predict(ticket: dict) -> dict:
     # Predict category
     cat_pred = _category_model.predict(X)[0]
     cat_label = _target_encoders["category"].inverse_transform([int(cat_pred)])[0]
+
+    if _subcategory_model is None:
+        return {"category": cat_label, "subcategory": None}
 
     # Add category probabilities as features for subcategory model
     cat_probs = _category_model.predict_proba(X)
