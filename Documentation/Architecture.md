@@ -132,6 +132,11 @@ and for regenerating features. I chose Airflow because it integrates naturally w
 is open source, and provides built-in retry handling, alerting, and a UI
 for monitoring pipeline runs. Since the workflow is DAG-based, it is clear and reproducible.
 
+In production the nightly retraining DAG would **not** retrain from scratch. It would fine-tune the
+current production model on the most recent data only (e.g. a rolling 30-day window), which is faster,
+cheaper, and avoids discarding patterns already learned from older data. A full retrain from scratch
+would only be triggered manually when the model architecture or feature set changes significantly.
+
 ### CI/CD and Deployment
 
 A complete production system requires a CI/CD pipeline and container-based deployment.
@@ -171,7 +176,7 @@ local equivalents.
 - Cloud Model Registry -> MLflow with SQLite backend (`mlruns.db`) 
 - Vector Database (Pinecone / pgvector) -> NumPy matrix loaded in memory (`data/rag/embeddings.npy`)
 - Graph Database (Neo4j) -> Flat JSON file (`data/rag/knowledge_graph.json`)
-- Orchestration (Airflow) -> Manual Python scripts
+- Orchestration (Airflow) -> Airflow DAG (`dags/train_xgboost_daily.py`) that calls `POST /train` at 03:00 UTC daily. Retrains from scratch on the full dataset — in production this would be incremental fine-tuning on recent data only. Promotion to production is always manual.
 - Container deployment (Docker / Kubernetes) -> Local `uvicorn` process
 
 
@@ -235,9 +240,10 @@ at startup and loads the corresponding artifacts (model files and encoders) from
 A REST API with two endpoints:
 
 - `POST /predict` : accepts a ticket JSON body, preprocesses it, runs the production model, and
-  returns predicted `category` and `subcategory`.
-- `POST /train`
+  returns a predicted `category` (`subcategory` is always `null` — see `Model.md`).
+- `POST /train` : triggers a synchronous training run for the specified model (currently XGBoost only)
+  by spawning a subprocess. The new model version is registered in MLflow but not promoted to
+  production automatically — promotion is always a manual step. This endpoint is also called by the
+  Airflow DAG for nightly scheduled retraining.
 
-The production model (XGBoost by default, swappable to CatBoost) is loaded from MLflow at startup.
-Both model types are supported transparently: CatBoost is auto-detected from the saved encoder
-metadata, and the appropriate preprocessing path is selected accordingly.
+The production model is loaded from MLflow at startup by resolving the `"production"` alias.

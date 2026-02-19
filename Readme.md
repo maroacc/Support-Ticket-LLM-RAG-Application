@@ -67,6 +67,8 @@ python src/xgboost/train.py
 
 This trains only the **category** classifier (see [why below](#on-subcategory-prediction)). Training takes a few minutes on CPU. Artifacts are saved to `models/xgboost/latest/` and logged to MLflow.
 
+> **Note on retraining**: this implementation trains from scratch on the full dataset every time. In production you would not do this — you would fine-tune the existing model on new data only, or use a sliding window, to avoid unnecessary compute and training time.
+
 ### Step 3 — Register the model as production
 
 ```bash
@@ -160,6 +162,16 @@ python -m src.xgboost.register_production
 ```bash
 python src/xgboost/train.py
 ```
+
+### Scheduled retraining (Airflow)
+
+An Airflow DAG at `dags/train_xgboost_daily.py` triggers a training run every day at 03:00 UTC by calling `POST /train`. After the run completes, the new model version is registered in MLflow but **not promoted to production** — that step is always manual:
+
+```bash
+python -m src.xgboost.register_production
+```
+
+> **Note on retraining**: the DAG retrains from scratch on the full dataset. In production you would instead fine-tune the existing model on recent data only, which is faster and avoids discarding already-learned patterns.
 
 ### Viewing results in MLflow
 
