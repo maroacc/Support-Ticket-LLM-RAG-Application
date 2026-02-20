@@ -176,7 +176,7 @@ local equivalents.
 - Cloud Model Registry -> MLflow with SQLite backend (`mlruns.db`) 
 - Vector Database (Pinecone / pgvector) -> NumPy matrix loaded in memory (`data/rag/embeddings.npy`)
 - Graph Database (Neo4j) -> Flat JSON file (`data/rag/knowledge_graph.json`)
-- Orchestration (Airflow) -> Airflow DAG (`dags/train_xgboost_daily.py`) that calls `POST /train` at 03:00 UTC daily. Retrains from scratch on the full dataset — in production this would be incremental fine-tuning on recent data only. Promotion to production is always manual.
+- Orchestration (Airflow) -> Airflow DAG (`dags/train_xgboost_daily.py`) that calls `POST /train` at 03:00 UTC daily. Retrains from scratch on the full dataset  in production this would be incremental fine-tuning on recent data only. Promotion to production is always manual.
 - Container deployment (Docker / Kubernetes) -> Local `uvicorn` process
 
 
@@ -192,7 +192,7 @@ constrained to a rigid hierarchy.
 
 DistilBERT is a dual-input model combining a frozen DistilBERT text encoder with a structured
 feature MLP. Both branches are concatenated and passed through a shared layer before feeding into two
-independent classification heads — one for category, one for subcategory. DistilBERT weights are kept
+independent classification heads  one for category, one for subcategory. DistilBERT weights are kept
 frozen (not fine-tuned) to reduce training time on CPU. See `Model.md` for full architecture details,
 performance benchmarks, and analysis.
 
@@ -202,21 +202,21 @@ performance benchmarks, and analysis.
 
 A hybrid retrieval system that combines two signals to find and rank similar historical tickets.
 
-Step 1 — Semantic similarity search
+Step 1  Semantic similarity search
 
 All historical tickets are encoded offline using `sentence-transformers/all-MiniLM-L6-v2` (384
 dimensions, L2-normalized). The resulting matrix is saved to `data/rag/embeddings.npy` and loaded into
 memory at startup. At query time, the new ticket is embedded with the same model and compared against
 all stored vectors via dot product (equivalent to cosine similarity under L2 normalization).
 
-Step 2 — Structured field matching
+Step 2  Structured field matching
 
 Each historical ticket has a corresponding entry in `data/rag/knowledge_graph.json` storing its
 product, product version, module, category, subcategory, and error codes extracted via regex from the
 error logs. The new ticket's fields are compared against the top candidates from step 1 to compute a
 structured overlap ratio.
 
-Step 3 — Score fusion and re-ranking
+Step 3  Score fusion and re-ranking
 
 Both signals are combined into a final score and the results are re-sorted:
 
@@ -240,10 +240,10 @@ at startup and loads the corresponding artifacts (model files and encoders) from
 A REST API with two endpoints:
 
 - `POST /predict` : accepts a ticket JSON body, preprocesses it, runs the production model, and
-  returns a predicted `category` (`subcategory` is always `null` — see `Model.md`).
+  returns a predicted `category` (`subcategory` is always `null`  see `Model.md`).
 - `POST /train` : triggers a synchronous training run for the specified model (currently XGBoost only)
   by spawning a subprocess. The new model version is registered in MLflow but not promoted to
-  production automatically — promotion is always a manual step. This endpoint is also called by the
+  production automatically  promotion is always a manual step. This endpoint is also called by the
   Airflow DAG for nightly scheduled retraining.
 
 The production model is loaded from MLflow at startup by resolving the `"production"` alias.

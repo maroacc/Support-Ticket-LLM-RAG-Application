@@ -314,7 +314,7 @@ def build_metrics(cat_test_metrics, sub_test_metrics,
 
 if __name__ == "__main__":
 
-    # 1 — Load raw data and run full preprocessing pipeline
+    # 1  Load raw data and run full preprocessing pipeline
     #     (tokenize text, encode features, scale numerics)
     df = load_data(DATA_PATH)
     data = preprocess(df)
@@ -331,16 +331,16 @@ if __name__ == "__main__":
     num_subcategories = len(target_encoders["subcategory"].classes_)
     total_samples = len(input_ids)
 
-    # 2 — Stratified train/val/test split (70/15/15)
+    # 2  Stratified train/val/test split (70/15/15)
     splits = split_data(input_ids, attention_mask, structured, y_cat, y_sub)
 
-    # 3 — Create PyTorch DataLoaders for batched iteration
+    # 3  Create PyTorch DataLoaders for batched iteration
     #     (shuffle training data; keep val/test in order for reproducible evaluation)
     train_loader = make_dataloader(splits["train"], BATCH_SIZE, shuffle=True)
     val_loader = make_dataloader(splits["val"], BATCH_SIZE, shuffle=False)
     test_loader = make_dataloader(splits["test"], BATCH_SIZE, shuffle=False)
 
-    # 4 — Instantiate the dual-input model and move to GPU/CPU
+    # 4  Instantiate the dual-input model and move to GPU/CPU
     model = BertTicketClassifier(
         num_structured_features=structured.shape[1],
         num_categories=num_categories,
@@ -353,14 +353,14 @@ if __name__ == "__main__":
     print(f"Total parameters:     {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
 
-    # 5 — Set up loss functions and optimizer
+    # 5  Set up loss functions and optimizer
     #     CrossEntropyLoss combines LogSoftmax + NLLLoss in one step
     #     AdamW adds weight decay (L2 regularization) decoupled from the gradient update
     cat_criterion = nn.CrossEntropyLoss()
     sub_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    # 6 — Training loop with early stopping
+    # 6  Training loop with early stopping
     #     Track the best validation loss; if it doesn't improve for PATIENCE
     #     consecutive epochs, stop and restore the best model weights
     best_val_loss = float("inf")
@@ -376,14 +376,14 @@ if __name__ == "__main__":
         print(f"  Epoch {epoch:>2}/{EPOCHS}  |  train_loss: {train_loss:.4f}  |  val_loss: {val_loss:.4f}")
 
         if val_loss < best_val_loss:
-            # New best — save model state and reset patience
+            # New best  save model state and reset patience
             best_val_loss = val_loss
             best_epoch = epoch
             patience_counter = 0
             # Clone weights to CPU so we don't lose them if training continues on GPU
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
         else:
-            # No improvement — increment patience counter
+            # No improvement  increment patience counter
             patience_counter += 1
             if patience_counter >= PATIENCE:
                 print(f"\n  Early stopping at epoch {epoch} (best epoch: {best_epoch})")
@@ -393,7 +393,7 @@ if __name__ == "__main__":
     model.load_state_dict(best_state)
     model.to(DEVICE)
 
-    # 7 — Evaluate on test and train sets using the best model
+    # 7  Evaluate on test and train sets using the best model
     print("\n" + "=" * 60)
     print("  CATEGORY EVALUATION")
     print("=" * 60)
@@ -402,7 +402,7 @@ if __name__ == "__main__":
     cat_test_preds, sub_test_preds = predict(model, test_loader)
     cat_train_preds, sub_train_preds = predict(model, train_loader)
 
-    # Category metrics (test and train — train is useful for detecting overfitting)
+    # Category metrics (test and train  train is useful for detecting overfitting)
     cat_test_metrics = evaluate_predictions(
         splits["test"]["y_cat"], cat_test_preds,
         target_encoders, target_col="category", split="test"
@@ -426,7 +426,7 @@ if __name__ == "__main__":
         target_encoders, target_col="subcategory", split="train"
     )
 
-    # 8 — Plot confusion matrices for all evaluation combinations
+    # 8  Plot confusion matrices for all evaluation combinations
     plots_dir = MODELS_DIR / "latest_plots"
     subcat_to_cat = dict(zip(df["subcategory"], df["category"]))
     for target_col, y_true, y_pred, split in [
@@ -441,11 +441,11 @@ if __name__ == "__main__":
             subcat_to_cat=subcat_to_cat if target_col == "subcategory" else None,
         )
 
-    # 9 — Save model weights and encoder artifacts to disk
+    # 9  Save model weights and encoder artifacts to disk
     version_dir = MODELS_DIR / "latest"
     save_artifacts(model, encoders, target_encoders, version_dir)
 
-    # 9 — Log everything to MLflow and register the model
+    # 9  Log everything to MLflow and register the model
     params = build_params(model, structured.shape[1], splits, target_encoders,
                           total_samples, best_epoch)
     metrics = build_metrics(cat_test_metrics, sub_test_metrics,

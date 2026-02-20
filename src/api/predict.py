@@ -21,7 +21,7 @@ from src.xgboost.preprocessing import (
 
 
 # ============================================================
-# MODULE STATE — loaded once on startup
+# MODULE STATE  loaded once on startup
 # ============================================================
 
 _category_model    = None
@@ -58,7 +58,7 @@ def load_production_model(model_name: str = "xgboost-ticket-classifier"):
     print(f"Loading production model: {model_name} version {version}")
     print(f"  MLflow run ID: {run_id}")
 
-    # Resolve artifact directory — works both locally and inside Docker.
+    # Resolve artifact directory  works both locally and inside Docker.
     # MLflow stores an absolute OS-specific URI (e.g. file:C:/Users/...),
     # so we extract the relative mlruns/... portion and re-anchor it to
     # PROJECT_ROOT (which is /app inside the container).
@@ -94,7 +94,7 @@ def load_production_model(model_name: str = "xgboost-ticket-classifier"):
 
 
 # ============================================================
-# PREPROCESS — XGBOOST PATH
+# PREPROCESS  XGBOOST PATH
 # ============================================================
 
 def _preprocess_ticket_xgboost(ticket: dict) -> pd.DataFrame:
@@ -158,7 +158,7 @@ def _preprocess_ticket_xgboost(ticket: dict) -> pd.DataFrame:
 
 
 # ============================================================
-# PREPROCESS — CATBOOST PATH
+# PREPROCESS  CATBOOST PATH
 # ============================================================
 
 def _preprocess_ticket_catboost(ticket: dict) -> pd.DataFrame:
@@ -173,7 +173,7 @@ def _preprocess_ticket_catboost(ticket: dict) -> pd.DataFrame:
 
     row = {col: 0 for col in expected_cols}
 
-    # Categorical columns — pass as strings
+    # Categorical columns  pass as strings
     for col in cat_feature_names:
         if col in row:
             row[col] = str(ticket.get(col, "unknown"))

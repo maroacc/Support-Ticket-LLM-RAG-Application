@@ -11,11 +11,11 @@ from transformers import DistilBertTokenizer
 MODEL_NAME = "distilbert-base-uncased"  # HuggingFace model identifier for tokenizer + encoder
 MAX_LENGTH = 256                        # max token length; longer sequences are truncated, shorter are padded
 
-# Text columns — concatenated into a single string per ticket
+# Text columns  concatenated into a single string per ticket
 # These capture the free-text description of the support issue
 TEXT_COLS = ["subject", "description", "error_logs", "stack_trace"]
 
-# Columns to one-hot encode (low cardinality — creates one binary column per unique value)
+# Columns to one-hot encode (low cardinality  creates one binary column per unique value)
 ONE_HOT_COLS = [
     "customer_tier",
     "channel",
@@ -24,7 +24,7 @@ ONE_HOT_COLS = [
     "region",
 ]
 
-# Columns to label encode (higher cardinality — maps each unique value to an integer)
+# Columns to label encode (higher cardinality  maps each unique value to an integer)
 # One-hot encoding these would create too many sparse columns
 LABEL_ENCODE_COLS = [
     "product",
@@ -36,7 +36,7 @@ LABEL_ENCODE_COLS = [
     "customer_sentiment",
 ]
 
-# Numeric columns — will be standardized (zero mean, unit variance)
+# Numeric columns  will be standardized (zero mean, unit variance)
 # to help the neural network converge faster
 NUMERIC_COLS = [
     "previous_tickets",
@@ -49,7 +49,7 @@ NUMERIC_COLS = [
     "ticket_text_length",
 ]
 
-# Binary columns — already 0/1 but may be stored as bool; cast to int
+# Binary columns  already 0/1 but may be stored as bool; cast to int
 BINARY_COLS = [
     "contains_error_code",
     "contains_stack_trace",
@@ -58,14 +58,14 @@ BINARY_COLS = [
     "after_hours",
 ]
 
-# Target columns — what the model learns to predict
+# Target columns  what the model learns to predict
 TARGET_COLS = ["category", "subcategory"]
 
-# Tags — keep only the TOP_N_TAGS most frequent tags as multi-hot features
+# Tags  keep only the TOP_N_TAGS most frequent tags as multi-hot features
 # to avoid an explosion of sparse columns from rare tags
 TOP_N_TAGS = 20
 
-# Columns to drop — either not available at prediction time (e.g. resolution info)
+# Columns to drop  either not available at prediction time (e.g. resolution info)
 # or are identifiers that shouldn't be used as features
 COLS_TO_DROP = [
     "ticket_id", "customer_id", "organization_id", "agent_id",

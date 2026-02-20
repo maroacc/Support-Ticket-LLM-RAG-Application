@@ -10,40 +10,27 @@ An end-to-end system that classifies incoming support tickets and retrieves simi
 2. [Running the System (Local)](#running-the-system-local)
 3. [API Documentation](#api-documentation)
 4. [Reproducing Training and Evaluation](#reproducing-training-and-evaluation)
-5. [Key Design Decisions and Trade-offs](#key-design-decisions-and-trade-offs)
+5. [Viewing MLflow Results](#viewing-results-in-mlflow)
+6. [Key Design Decisions and Trade-offs](#key-design-decisions-and-trade-offs)
 
 
 ## Running the System (Docker)
 
 Docker is the recommended way to run the system. It requires [Docker Desktop](https://www.docker.com/products/docker-desktop/). On Windows, use the WSL2 backend (default on Windows 11).
 
-All commands must be run from the **project root** (the folder that contains `Dockerfile` and `src/`).
+All commands must be run from the project root.
 
-**Place the dataset** at:
-```
-data/support_tickets.json
-```
+Before starting, make sure the following files are present, they are provided and should not need to be generated:
 
-### Step 1 : Build RAG artifacts
+| Path                           | Description                           |
+|--------------------------------|---------------------------------------|
+| data/support_tickets.json      | Raw dataset                           |
+| data/rag/embeddings.npy        | Pre-computed ticket embeddings        |
+| data/rag/knowledge_graph.json  | Knowledge graph for metadata matching |
+| data/rag/resolution_stats.json | KB article success rates              |
 
-Pre-compute the ticket embeddings and knowledge graph used by the retrieval system. This only needs to be run once (or when the dataset changes). Requires Python 3.10+ and the dependencies below installed locally.
 
-```bash
-# Install dependencies
-pip install fastapi uvicorn xgboost catboost scikit-learn pandas numpy \
-            sentence-transformers transformers torch mlflow joblib pydantic
-
-# Build the embedding matrix (~160MB, stored in data/rag/embeddings.npy)
-python src/rag/build_embeddings.py
-
-# Build the knowledge graph (stored in data/rag/knowledge_graph.json)
-python src/rag/build_knowledge_graph.py
-
-# Build resolution stats (stored in data/rag/resolution_stats.json)
-python src/rag/build_resolution_stats.py
-```
-
-### Step 2 : Train the XGBoost model
+### Step 1 : Train the XGBoost model
 
 ```bash
 python src/xgboost/train.py
@@ -62,7 +49,6 @@ This sets the `production` alias in the MLflow registry. The API loads whichever
 ### Step 4 : Build and run the container
 
 ```bash
-# Build the image (once, or after code changes)
 docker build -t ticket-classifier .
 ```
 
@@ -99,16 +85,15 @@ To stop and restart the container:
 docker stop ticket-classifier && docker rm ticket-classifier
 ```
 
-Volume breakdown:
-| Volume | Purpose |
-|||
-| `mlruns.db` | MLflow tracking database : persists experiment history |
-| `mlruns/` | MLflow artifact files (model weights, encoders) referenced by the database |
-| `mlartifacts/` | MLflow model artifacts : persists trained model files |
-| `data/support_tickets.json` | Raw dataset for `/train` (read-only) |
-| `data/rag/` | Pre-built RAG artifacts from Step 1 (read-only) |
-| `models/xgboost/latest/` | Local model copy written by `train.py` |
-| `hf_cache` | sentence-transformers model cache : downloaded once, reused across restarts |
+| Volume                    | Description                                                                 |
+|---------------------------|-----------------------------------------------------------------------------|
+| mlruns.db                 | MLflow tracking database : stores experiment history                        |
+| mlruns/                   | MLflow artifact files (model weights, encoders)                             |
+| mlartifacts/              | MLflow model artifacts : trained model files                                |
+| data/support_tickets.json | Raw dataset for training                                                    |
+| data/rag/                 | Pre-built RAG artifacts                                                     |
+| models/xgboost/latest/    | Local model copy written by train.py                                        |
+| hf_cache                  | sentence-transformers model cache : downloaded once, reused across restarts |
 
 The API is now available at http://127.0.0.1:8000. Interactive docs at http://localhost:8000/docs.
 
@@ -217,32 +202,25 @@ Example
 }
 ```
 
-`category` is echoed back from the request to confirm what was used for matching.
-
 Results are sorted by final_score (60% semantic similarity + 40% knowledge graph field overlap).
 
-Each result includes the KB articles that helped resolve that ticket, along with their historical success rates.
+Each result includes the KB articles that helped resolve that ticket, 
+along with their historical success rates.
 
-> **Evolution**: the current response returns one solution per similar ticket. A natural next step would be to aggregate the KB articles across all returned tickets into a single deduplicated list ordered by success rate, surfacing the most effective solutions first regardless of which ticket they came from.
+> **Evolution**: the current response returns one solution per similar ticket. 
+> A natural next step would be to aggregate the KB articles across all returned tickets into a single 
+> deduplicated list ordered by success rate to return the most effective solutions first 
+> regardless of which ticket they came from.
 
 The endpoint returns 503 if the RAG artifacts haven't been built yet.
 
 #### POST /train
 
-Triggers a training run for the specified model. The request blocks until training completes.
+Triggers an XGBoost training run. No request body needed. The request blocks until training completes.
 
-> **Note**: This has been implemented as a synchronous endpoint, but ideally it should be asynchronous with a job status endpoint.
-
-**Request**
-```json
-{
-  "model": "xgboost"
-}
-```
-
-| Field | Type | Default | Description |
-|||||
-| `model` | string | required | `"xgboost"` |
+> **Note**: This has been implemented as a synchronous endpoint, 
+> but ideally it should be asynchronous with a job status 
+> endpoint.
 
 **Response**
 ```json
@@ -286,14 +264,6 @@ python -m src.xgboost.register_production
 > In production you would instead fine-tune the existing model on recent data 
 > only, which is faster and avoids deleting patterns that were previously learnt.
 
-### Viewing results in MLflow
-
-```bash
-mlflow ui --backend-store-uri sqlite:///mlruns.db
-```
-
-Open `http://127.0.0.1:5000` to browse experiment runs, metrics, and confusion matrix plots.
-
 ### CatBoost (reference only)
 
 CatBoost is included for comparison. 
@@ -312,7 +282,7 @@ python src/bert/train.py
 ```
 
 The deep learning model is not connected to the API or the RAG pipeline. 
-Training it on CPU is incredibly slow, and given that XGBoost already 
+Training it on CPU is very slow, and given that XGBoost already 
 achieves 99% weighted F1 on category with structured features alone, 
 there is no practical justification for using it here. 
 It is kept as a reference implementation only.
@@ -335,11 +305,11 @@ with stratification and a fixed random seed (42) for reproducibility.
 ### Subcategory prediction
 
 Subcategory labels in this dataset are not predictable. As a result, all models predict only the category. 
-The script train_hierarchical.py is kept as a reference showing how a category + subcategory 
+The script `train_hierarchical.py` is kept as a reference showing how a category + subcategory 
 pipeline would be structured, but it is not connected to the API 
 and the RAG system only uses the category value.
 
-The analysis of predictability can be found at _notebooks/subcategory_predictibility_.
+The analysis of predictability can be found at `notebooks/subcategory_predictibility`.
 
 ### XGBoost Choice
 
@@ -380,7 +350,7 @@ Since the subcategory cannot be predicted, it was not used for the RAG retrieval
 the predicted result would most likely be wrong and pollute the results.
 
 
-The embedding matrix (aprox. 160MB for 100K tickets) is loaded entirely into memory 
+The embedding matrix is loaded entirely into memory 
 at startup. This works at the current scale but would need to be replaced 
 with a dedicated vector database (p. ex pgvector) as ticket volume 
 grows. See `Documentation/Architecture.md` for details.
@@ -403,7 +373,7 @@ historical ticket:
 
 KB articles are extracted from the `kb_articles_helpful` field of 
 the matched ticket and enriched with their historical success rates 
-from `data/rag/resolution_stats.json` (pre-computed from all 100K tickets), 
+from `data/rag/resolution_stats.json` (pre-computed from all tickets), 
 then sorted by success rate descending. 
 
 
@@ -416,6 +386,29 @@ the API resolves this alias at startup. To chang the production
 model, the `register_production` function has to be ran with the 
 desired version, with no code changes or API restart.
 
+
+#### Viewing results in MLflow
+
+Start the MLflow UI from the project root:
+
+```bash
+mlflow ui --backend-store-uri sqlite:///mlruns.db
+```
+
+Then open `http://127.0.0.1:5000` in your browser.
+
+**Experiment**: `xgboost-ticket-classifier`
+
+Each training run logs the following:
+
+| Category       | What is tracked                                                                                                                                |
+|----------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Parameters** | Dataset sizes (train/val/test), model hyperparameters (n_estimators, max_depth, learning_rate, best_iteration), number of features and classes |
+| **Metrics**    | Weighted F1, precision, recall and accuracy on both train and test splits, per-class F1; per-feature importance scores                         |
+| **Artifacts**  | `model/`  trained model and encoders (`.joblib` files); `plots/`  confusion matrices for train and test splits                                 |
+
+
+**Model registry**: the **Models** tab lists all registered versions of `xgboost-ticket-classifier`. The version carrying the `production` alias is the one loaded by the API at startup.
 
 ### Implemented vs. ideal architecture
 

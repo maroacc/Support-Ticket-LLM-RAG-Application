@@ -111,23 +111,23 @@ def find_similar(ticket: dict, top_k: int = 10) -> list[dict]:
     if _embeddings is None:
         raise RuntimeError("Call load() before find_similar()")
 
-    # Step 1 — Build query text from the ticket fields (same way we built embeddings)
+    # Step 1  Build query text from the ticket fields (same way we built embeddings)
     query_text = build_ticket_text(ticket)
 
-    # Step 2 — Encode the query into a 384-dim vector
+    # Step 2  Encode the query into a 384-dim vector
     query_vec = _encode_query(query_text)
 
-    # Step 3 — Dot product against all stored embeddings
+    # Step 3  Dot product against all stored embeddings
     #          Since both are L2-normalized, this equals cosine similarity
     similarities = _embeddings @ query_vec   # shape: (N,)
 
-    # Step 4 — Get the top_k highest scores
+    # Step 4  Get the top_k highest scores
     #          argpartition is O(N) vs O(N log N) for full sort
     top_indices = np.argpartition(similarities, -top_k)[-top_k:]
     # Sort those top_k by score descending
     top_indices = top_indices[np.argsort(similarities[top_indices])[::-1]]
 
-    # Step 5 — Build results with full ticket data
+    # Step 5  Build results with full ticket data
     results = []
     for idx in top_indices:
         ticket_id = _reverse_index[int(idx)]
@@ -141,7 +141,7 @@ def find_similar(ticket: dict, top_k: int = 10) -> list[dict]:
 
 
 # ============================================================
-# MAIN — quick test
+# MAIN  quick test
 # ============================================================
 
 if __name__ == "__main__":

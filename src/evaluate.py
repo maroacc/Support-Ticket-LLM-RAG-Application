@@ -31,7 +31,7 @@ def evaluate_predictions(y_true, y_pred, target_encoders: dict,
 
     report = classification_report(y_true_labels, y_pred_labels, output_dict=True)
 
-    print(f"\n CLASSIFICATION REPORT — {target_col} ({split} set)\n")
+    print(f"\n CLASSIFICATION REPORT  {target_col} ({split} set)\n")
     print(classification_report(y_true_labels, y_pred_labels))
 
     return report
@@ -64,7 +64,7 @@ def plot_confusion_matrix(y_true, y_pred, target_encoders: dict,
 
     # Group subcategories by category when mapping is provided
     if subcat_to_cat is not None:
-        label_map = {sub: f"{cat} — {sub}" for sub, cat in subcat_to_cat.items()}
+        label_map = {sub: f"{cat}  {sub}" for sub, cat in subcat_to_cat.items()}
         labels = sorted(labels, key=lambda s: (subcat_to_cat.get(s, ""), s))
         display_labels = [label_map.get(l, l) for l in labels]
     else:
@@ -83,7 +83,7 @@ def plot_confusion_matrix(y_true, y_pred, target_encoders: dict,
 
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
-    ax.set_title(f"Confusion Matrix — {target_col} ({split} set)")
+    ax.set_title(f"Confusion Matrix  {target_col} ({split} set)")
     plt.xticks(rotation=45, ha="right")
     plt.yticks(rotation=0)
     plt.tight_layout()

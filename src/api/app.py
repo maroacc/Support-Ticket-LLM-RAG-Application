@@ -13,9 +13,9 @@ from src.rag import solution_finder
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-SUPPORTED_MODELS = {
-    "xgboost": "xgboost-ticket-classifier",
-}
+MODEL_NAME = "xgboost-ticket-classifier"
+TRAIN_SCRIPT = "src/xgboost/train.py"
+EXPERIMENT_NAME = "xgboost-ticket-classifier"
 
 
 # ============================================================
@@ -141,10 +141,6 @@ class PredictionResponse(BaseModel):
     category: str
 
 
-class TrainRequest(BaseModel):
-    model: str
-
-
 class TrainResponse(BaseModel):
     model_name: str
     run_id:     str
@@ -268,23 +264,16 @@ def rag(ticket: RAGRequest, top_k: int = 5):
 
 
 @app.post("/train", response_model=TrainResponse)
-def train(request: TrainRequest):
+def train():
     """
-    Trigger a training run for the specified model.
+    Trigger an XGBoost training run.
 
-    Supported models: "xgboost", "catboost".
-    Runs training synchronously — the request will block until training completes.
-    After training, promotes no alias automatically; call register_production separately.
+    Runs training synchronously  the request will block until training completes.
+    After training, the new version is not promoted automatically;
+    call register_production separately.
     """
-    if request.model not in SUPPORTED_MODELS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown model '{request.model}'. Supported: {list(SUPPORTED_MODELS.keys())}",
-        )
-
-    train_script = PROJECT_ROOT / "src" / request.model / "train.py"
     result = subprocess.run(
-        [sys.executable, str(train_script)],
+        [sys.executable, TRAIN_SCRIPT],
         cwd=str(PROJECT_ROOT),
         capture_output=True,
         text=True,
@@ -301,8 +290,7 @@ def train(request: TrainRequest):
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     client = mlflow.tracking.MlflowClient()
 
-    model_name = SUPPORTED_MODELS[request.model]
-    experiment  = client.get_experiment_by_name(f"{request.model}-ticket-classifier")
+    experiment = client.get_experiment_by_name(EXPERIMENT_NAME)
     runs = client.search_runs(
         [experiment.experiment_id],
         order_by=["start_time DESC"],
@@ -310,7 +298,7 @@ def train(request: TrainRequest):
     )
     run_id = runs[0].info.run_id
 
-    versions = client.search_model_versions(f"name='{model_name}'")
+    versions = client.search_model_versions(f"name='{MODEL_NAME}'")
     latest_version = str(max(int(v.version) for v in versions))
 
-    return TrainResponse(model_name=model_name, run_id=run_id, version=latest_version)
+    return TrainResponse(model_name=MODEL_NAME, run_id=run_id, version=latest_version)

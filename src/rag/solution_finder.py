@@ -50,11 +50,11 @@ def _extract_solution(ticket_data: dict) -> dict:
 
     Returns:
         {
-          "resolution":          str   — what was done to fix the issue
-          "resolution_code":     str   — e.g. "CONFIG_CHANGE"
-          "resolution_template": str   — e.g. "TEMPLATE-DB-TIMEOUT"
-          "resolution_helpful":  bool  — whether the resolution actually worked
-          "kb_articles":         list  — helpful KB articles sorted by success_rate,
+          "resolution":          str    what was done to fix the issue
+          "resolution_code":     str    e.g. "CONFIG_CHANGE"
+          "resolution_template": str    e.g. "TEMPLATE-DB-TIMEOUT"
+          "resolution_helpful":  bool   whether the resolution actually worked
+          "kb_articles":         list   helpful KB articles sorted by success_rate,
                                          each: {"article": "KB-887", "success_rate": 0.85}
         }
     """
@@ -156,10 +156,10 @@ def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
     if _knowledge_graph is None:
         raise RuntimeError("Call load() before find_solutions()")
 
-    # Step 1 — Find the most similar tickets by embedding similarity
+    # Step 1  Find the most similar tickets by embedding similarity
     similar_tickets = find_similar(ticket, top_k=top_k)
 
-    # Step 2 — For each similar ticket, compare its knowledge graph entry
+    # Step 2  For each similar ticket, compare its knowledge graph entry
     results = []
     for result in similar_tickets:
         tid = result["ticket_id"]
@@ -167,7 +167,7 @@ def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
 
         comparison = _compare_fields(ticket, graph_entry)
 
-        # Step 3 — Calculate final score combining both signals
+        # Step 3  Calculate final score combining both signals
         similarity = result["similarity_score"]
         match_ratio = comparison["match_ratio"]
         final_score = (SIMILARITY_WEIGHT * similarity) + (MATCH_WEIGHT * match_ratio)
@@ -182,14 +182,14 @@ def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
             "solution":         _extract_solution(result["ticket_data"]),
         })
 
-    # Step 4 — Re-sort by final_score (not just similarity)
+    # Step 4  Re-sort by final_score (not just similarity)
     results.sort(key=lambda r: r["final_score"], reverse=True)
 
     return results
 
 
 # ============================================================
-# MAIN — test
+# MAIN  test
 # ============================================================
 
 if __name__ == "__main__":

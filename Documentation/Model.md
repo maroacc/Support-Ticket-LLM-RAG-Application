@@ -1,5 +1,10 @@
 # Model Documentation
 
+## Feature selection
+
+Only features that are available at the moment a ticket is created were used. 
+Features that are only known after the ticket is resolved (e.g. resolution time, resolution code, assigned agent) were excluded, as including them would cause data leakage and make the model unusable in production.
+
 ## XGBoost
 
 ### Description
@@ -19,19 +24,9 @@ help the model indentify the subcategory easily.
 
 ### Performance benchmark
 
-The category model achieves 100% weighted F1 on the test set. However, the subcategory model only reaches ~20% weighted F1, with every individual subcategory scoring around 20%. Since each category has exactly 5 subcategories, 20% is exactly random chance (1/5).
-
-### Subcategory is not predictable
-
-After investigating the poor subcategory performance, I conducted a thorough analysis (see `notebooks/subcategory_predictability.ipynb`) that shows the subcategory labels were most likely randomly assigned within each category during data generation. The evidence:
-
-1. **Text content is identical** across subcategories within a category — the same templates are used regardless of subcategory.
-2. **Chi-squared tests** on all structured features show no significant association with subcategory (only 2/70 tests significant, consistent with random noise at p<0.05).
-3. **A Naive Bayes classifier on TF-IDF** achieves exactly chance-level accuracy (~20%) for every category.
-4. **Normalized Mutual Information** between all features and subcategory is effectively zero (~0.0001).
-
-This means no model — regardless of architecture, hyperparameters, or feature engineering — can predict subcategory better than 20%. The information simply does not exist in the dataset. The subcategory model's performance is at its theoretical ceiling, not a failure of the modeling approach.
-
+The category model achieves 100% weighted F1 on the test set. 
+However, the subcategory model only reaches ~20% weighted F1, 
+with every individual subcategory scoring around 20%. Since each category has exactly 5 subcategories, 20% is exactly random chance (1/5).
 
 ### Feature importance
 
@@ -41,11 +36,33 @@ the category.
 
 ### Error analysis
 
+The difference between the performance at training and test
+suggest that the model is overfit for training. Looking at the
+confusion ma
+
+
+
+### Subcategory is not predictable
+
+After investigating the poor subcategory performance, I conducted an 
+thorough analysis (see `notebooks/subcategory_predictability.ipynb`) that shows 
+the subcategory labels were most likely randomly assigned within each category during
+data generation. The evidence:
+
+1. **Text content is identical** across subcategories within a category, the same templates are used regardless of subcategory.
+2. **Chi-squared tests** on all structured features show no significant association with subcategory.
+4. **Normalized Mutual Information** between all features and subcategory is effectively zero (~0.0001).
+
+This means no model, regardless of architecture, hyperparameters, or feature engineering 
+can predict subcategory better than 20%. The information simply does not 
+exist in the dataset. 
+
+
 ## Deep Learning
 
 ### Note on subcategory prediction
 
-As shown in the analysis above, subcategory labels are not predictable from any feature in this dataset. The DistilBERT model will therefore not be able to predict subcategories either. However, in a real-world scenario where ticket texts actually differ between subcategories, this architecture would be well-suited for the task — text contains the richest semantic signal for fine-grained classification, which is exactly what transformer models excel at.
+As shown in the analysis above, subcategory labels are not predictable from any feature in this dataset. The DistilBERT model will therefore not be able to predict subcategories either. However, in a real-world scenario where ticket texts actually differ between subcategories, this architecture would be well-suited for the task  text contains the richest semantic signal for fine-grained classification, which is exactly what transformer models excel at.
 
 ### Architecture
 
@@ -61,7 +78,7 @@ structured features ──→ Dense(128) ──→ Dense(128) ──────
 
 **Structured branch**: Tabular features (one-hot encoded, label-encoded, numeric, and binary columns) are processed through a two-layer MLP (128 units each).
 
-**Merge**: Both branches are concatenated (256 dims) and passed through a shared dense layer (128 units) before feeding into two independent classification heads — one for category, one for subcategory.
+**Merge**: Both branches are concatenated (256 dims) and passed through a shared dense layer (128 units) before feeding into two independent classification heads  one for category, one for subcategory.
 
 Dropout (0.3) is applied after every dense layer.
 
@@ -82,7 +99,7 @@ Given the randomly assigned subcategory labels, the subcategory head is expected
 
 ## How MLflow Works in This Project
 
-MLflow tracks every training run using a **SQLite backend** (`mlruns.db` at the project root). Configuration lives in `src/mlflow_config.py` (tracking URI + artifact root only — no hardcoded model names).
+MLflow tracks every training run using a **SQLite backend** (`mlruns.db` at the project root). Configuration lives in `src/mlflow_config.py` (tracking URI + artifact root only  no hardcoded model names).
 
 ### Per-model setup
 
@@ -97,10 +114,10 @@ Each model (XGBoost, CatBoost, etc.) defines its own experiment and registered m
 
 All models call `src/mlflow_utils.log_and_register()`, which logs:
 
-- **Parameters** — data splits, hyperparameters, preprocessing config
-- **Metrics** — accuracy, weighted F1/precision/recall, per-class F1
-- **Artifacts** — joblib files (category model, subcategory model, feature encoders, target encoders)
-- **Model version** — auto-registered in the MLflow model registry
+- **Parameters**  data splits, hyperparameters, preprocessing config
+- **Metrics**  accuracy, weighted F1/precision/recall, per-class F1
+- **Artifacts**  joblib files (category model, subcategory model, feature encoders, target encoders)
+- **Model version**  auto-registered in the MLflow model registry
 
 ### Production promotion
 

@@ -42,7 +42,7 @@ def split_data(X: pd.DataFrame, y: pd.Series):
       2. Split that 30% in half → 15% val, 15% test
     """
 
-    # step 1 — split into 70% train and 30% temp
+    # step 1  split into 70% train and 30% temp
     X_train, X_temp, y_train, y_temp = train_test_split(
         X, y,
         test_size=(TEST_SIZE + VAL_SIZE),   # 30%
@@ -50,7 +50,7 @@ def split_data(X: pd.DataFrame, y: pd.Series):
         stratify=y                          # preserve class distribution in each split
     )
 
-    # step 2 — split temp evenly into validation and test (50/50 of the 30%)
+    # step 2  split temp evenly into validation and test (50/50 of the 30%)
     X_val, X_test, y_val, y_test = train_test_split(
         X_temp, y_temp,
         test_size=0.5,                      # 50% of 30% = 15%

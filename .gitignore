@@ -23,7 +23,7 @@ src/catboost/catboost_info/tmp/
 # Misc
 nul
 
-# Data (too large for GitHub — upload to Colab via Google Drive or file upload)
+# Data (too large for GitHub  upload to Colab via Google Drive or file upload)
 data/
 
 # OS

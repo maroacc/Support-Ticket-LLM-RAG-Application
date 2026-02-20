@@ -14,7 +14,7 @@ from src.rag.config import (
 
 
 # ============================================================
-# STEP 1 — BUILD TEXT FOR EACH TICKET
+# STEP 1  BUILD TEXT FOR EACH TICKET
 # ============================================================
 
 def build_ticket_text(ticket: dict) -> str:
@@ -36,7 +36,7 @@ def build_ticket_text(ticket: dict) -> str:
 
 
 # ============================================================
-# STEP 2 — GENERATE EMBEDDINGS
+# STEP 2  GENERATE EMBEDDINGS
 # ============================================================
 
 def generate_embeddings(tickets: list[dict]) -> tuple[np.ndarray, dict]:
@@ -63,7 +63,7 @@ def generate_embeddings(tickets: list[dict]) -> tuple[np.ndarray, dict]:
     # Map each ticket_id to its row index
     index_map = {t["ticket_id"]: i for i, t in enumerate(tickets)}
 
-    # Encode — normalize_embeddings=True does L2 normalization
+    # Encode  normalize_embeddings=True does L2 normalization
     # so later we can use simple dot product instead of cosine similarity
     print(f"Encoding {len(texts)} tickets (batch_size={EMBEDDING_BATCH_SIZE})...")
     embeddings = model.encode(
@@ -77,7 +77,7 @@ def generate_embeddings(tickets: list[dict]) -> tuple[np.ndarray, dict]:
 
 
 # ============================================================
-# STEP 3 — SAVE TO DISK
+# STEP 3  SAVE TO DISK
 # ============================================================
 
 def save_embeddings(embeddings: np.ndarray, index_map: dict):
@@ -100,7 +100,7 @@ def save_embeddings(embeddings: np.ndarray, index_map: dict):
 
 
 # ============================================================
-# MAIN — run this script to build embeddings
+# MAIN  run this script to build embeddings
 # ============================================================
 
 if __name__ == "__main__":

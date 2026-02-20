@@ -26,7 +26,7 @@ LABEL_ENCODE_COLS = [
     "customer_sentiment",
 ]
 
-# Numeric columns — used as-is, no transformation needed for XGBoost
+# Numeric columns  used as-is, no transformation needed for XGBoost
 NUMERIC_COLS = [
     "previous_tickets",
     "account_age_days",
@@ -38,7 +38,7 @@ NUMERIC_COLS = [
     "ticket_text_length",
 ]
 
-# Binary columns — already 0/1 or boolean, just cast to int
+# Binary columns  already 0/1 or boolean, just cast to int
 BINARY_COLS = [
     "contains_error_code",
     "contains_stack_trace",
@@ -47,7 +47,7 @@ BINARY_COLS = [
     "after_hours",
 ]
 
-# Target columns — what we want to predict
+# Target columns  what we want to predict
 TARGET_COLS = ["category", "subcategory"]
 
 # How many of the most frequent tags to use for multi-hot encoding
@@ -59,7 +59,7 @@ TFIDF_MAX_FEATURES = 300
 
 
 # ============================================================
-# STEP 1 — ONE-HOT ENCODING
+# STEP 1  ONE-HOT ENCODING
 # ============================================================
 
 def encode_one_hot(df: pd.DataFrame) -> pd.DataFrame:
@@ -73,7 +73,7 @@ def encode_one_hot(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 2 — LABEL ENCODING
+# STEP 2  LABEL ENCODING
 # ============================================================
 
 def encode_labels(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -96,7 +96,7 @@ def encode_labels(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 # ============================================================
-# STEP 3 — BINARY COLUMNS
+# STEP 3  BINARY COLUMNS
 # ============================================================
 
 def encode_binary(df: pd.DataFrame) -> pd.DataFrame:
@@ -110,7 +110,7 @@ def encode_binary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 4 — MULTI-HOT ENCODING FOR TAGS
+# STEP 4  MULTI-HOT ENCODING FOR TAGS
 # ============================================================
 
 def encode_tags(df: pd.DataFrame) -> pd.DataFrame:
@@ -145,7 +145,7 @@ def encode_tags(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 5 — ENCODE TARGETS
+# STEP 5  ENCODE TARGETS
 # ============================================================
 
 def encode_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -165,7 +165,7 @@ def encode_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 # ============================================================
-# STEP 6 — TF-IDF TEXT FEATURES
+# STEP 6  TF-IDF TEXT FEATURES
 # ============================================================
 
 def encode_text_tfidf(df: pd.DataFrame) -> tuple[pd.DataFrame, TfidfVectorizer]:
@@ -197,7 +197,7 @@ def encode_text_tfidf(df: pd.DataFrame) -> tuple[pd.DataFrame, TfidfVectorizer]:
 
 
 # ============================================================
-# STEP 7 — DROP COLUMNS WE DON'T NEED
+# STEP 7  DROP COLUMNS WE DON'T NEED
 # ============================================================
 
 def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -220,10 +220,10 @@ def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
         "bug_report_filed", "resolution_template_used", "auto_suggested_solutions",
         "auto_suggestion_accepted", "response_count", "related_tickets",
 
-        # Free text — handled by TF-IDF when enabled
+        # Free text  handled by TF-IDF when enabled
         "feedback_text",
 
-        # Datetime — skipping for now
+        # Datetime  skipping for now
         "created_at",
     ]
 
@@ -235,7 +235,7 @@ def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# MAIN PIPELINE — ties all steps together
+# MAIN PIPELINE  ties all steps together
 # ============================================================
 
 def preprocess(df: pd.DataFrame, use_tfidf: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, dict, dict]:
@@ -249,31 +249,31 @@ def preprocess(df: pd.DataFrame, use_tfidf: bool = False) -> tuple[pd.DataFrame,
 
     df = df.copy()  # don't modify the original dataframe
 
-    # Step 1 — drop columns we don't use
+    # Step 1  drop columns we don't use
     df = drop_unused_columns(df)
 
-    # Step 2 — TF-IDF text features (or drop text columns if disabled)
+    # Step 2  TF-IDF text features (or drop text columns if disabled)
     if use_tfidf:
         df, tfidf_vectorizer = encode_text_tfidf(df)
     else:
         df = df.drop(columns=[c for c in TEXT_COLS if c in df.columns])
 
-    # Step 3 — one-hot encode low cardinality categoricals
+    # Step 3  one-hot encode low cardinality categoricals
     df = encode_one_hot(df)
 
-    # Step 4 — label encode higher cardinality categoricals
+    # Step 4  label encode higher cardinality categoricals
     df, feature_encoders = encode_labels(df)
 
     if use_tfidf:
         feature_encoders["tfidf_vectorizer"] = tfidf_vectorizer
 
-    # Step 5 — cast binary columns to int
+    # Step 5  cast binary columns to int
     df = encode_binary(df)
 
-    # Step 6 — multi-hot encode tags
+    # Step 6  multi-hot encode tags
     df = encode_tags(df)
 
-    # Step 7 — encode targets and separate them from features
+    # Step 7  encode targets and separate them from features
     df, target_encoders = encode_targets(df)
 
     # Split into features (X) and targets (y)

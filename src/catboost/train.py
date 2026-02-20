@@ -47,7 +47,7 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series,
     """
     Train a single CatBoost classifier.
 
-    CatBoost handles categorical features natively — we pass them
+    CatBoost handles categorical features natively  we pass them
     via cat_features parameter. eval_set monitors validation loss
     for early stopping.
     """
@@ -72,7 +72,7 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series,
 
     model.fit(train_pool, eval_set=val_pool)
 
-    print(f"\n {target_name} model trained — best iteration: {model.best_iteration_}")
+    print(f"\n {target_name} model trained  best iteration: {model.best_iteration_}")
     return model
 
 
@@ -156,15 +156,15 @@ def build_metrics(cat_test_metrics, sub_test_metrics,
 
 if __name__ == "__main__":
 
-    # 1 — load raw data
+    # 1  load raw data
     df = load_data(DATA_PATH)
 
-    # 2 — preprocess
+    # 2  preprocess
     X, y, feature_encoders, target_encoders = preprocess(df, use_tfidf=USE_TFIDF)
     cat_feature_indices = feature_encoders["cat_feature_indices"]
 
     # ================================================================
-    # MODEL 1 — predict category
+    # MODEL 1  predict category
     # ================================================================
 
     y_cat = y["category"]
@@ -179,7 +179,7 @@ if __name__ == "__main__":
                                        target_encoders, target_col="category", split="train")
 
     # ================================================================
-    # MODEL 2 — predict subcategory (with category probs as features)
+    # MODEL 2  predict subcategory (with category probs as features)
     # ================================================================
 
     y_sub_train = y["subcategory"].loc[X_train.index]
@@ -220,7 +220,7 @@ if __name__ == "__main__":
                           key=lambda x: x[1], reverse=True)
 
         print(f"\n{'='*60}")
-        print(f"  {title} — Top {top_n} features by importance")
+        print(f"  {title}  Top {top_n} features by importance")
         print(f"{'='*60}")
         for name, score in feat_imp[:top_n]:
             bar = "#" * int(score * 2)

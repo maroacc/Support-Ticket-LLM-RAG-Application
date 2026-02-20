@@ -2,9 +2,9 @@
 CatBoost-native preprocessing.
 
 Key difference from XGBoost preprocessing:
-  - No label encoding for categoricals — CatBoost handles them natively
+  - No label encoding for categoricals  CatBoost handles them natively
     via the cat_features parameter (pass categorical columns as strings)
-  - No one-hot encoding — CatBoost encodes internally
+  - No one-hot encoding  CatBoost encodes internally
   - Keep: TF-IDF for text, multi-hot for tags, binary cast, numeric as-is,
     drop unused columns, encode targets
 """
@@ -17,7 +17,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 # CONFIGURATION
 # ============================================================
 
-# Categorical columns — passed as strings to CatBoost (no encoding needed)
+# Categorical columns  passed as strings to CatBoost (no encoding needed)
 CAT_COLS = [
     "customer_tier",
     "channel",
@@ -33,7 +33,7 @@ CAT_COLS = [
     "customer_sentiment",
 ]
 
-# Numeric columns — used as-is
+# Numeric columns  used as-is
 NUMERIC_COLS = [
     "previous_tickets",
     "account_age_days",
@@ -45,7 +45,7 @@ NUMERIC_COLS = [
     "ticket_text_length",
 ]
 
-# Binary columns — cast to int
+# Binary columns  cast to int
 BINARY_COLS = [
     "contains_error_code",
     "contains_stack_trace",
@@ -66,7 +66,7 @@ TFIDF_MAX_FEATURES = 300
 
 
 # ============================================================
-# STEP 1 — DROP UNUSED COLUMNS
+# STEP 1  DROP UNUSED COLUMNS
 # ============================================================
 
 def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -93,7 +93,7 @@ def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 2 — CATEGORICAL COLUMNS (strings for CatBoost)
+# STEP 2  CATEGORICAL COLUMNS (strings for CatBoost)
 # ============================================================
 
 def prepare_categoricals(df: pd.DataFrame) -> pd.DataFrame:
@@ -105,7 +105,7 @@ def prepare_categoricals(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 3 — BINARY COLUMNS
+# STEP 3  BINARY COLUMNS
 # ============================================================
 
 def encode_binary(df: pd.DataFrame) -> pd.DataFrame:
@@ -115,7 +115,7 @@ def encode_binary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 4 — MULTI-HOT ENCODING FOR TAGS
+# STEP 4  MULTI-HOT ENCODING FOR TAGS
 # ============================================================
 
 def encode_tags(df: pd.DataFrame) -> pd.DataFrame:
@@ -136,7 +136,7 @@ def encode_tags(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# STEP 5 — TF-IDF TEXT FEATURES
+# STEP 5  TF-IDF TEXT FEATURES
 # ============================================================
 
 def encode_text_tfidf(df: pd.DataFrame) -> tuple[pd.DataFrame, TfidfVectorizer]:
@@ -162,7 +162,7 @@ def encode_text_tfidf(df: pd.DataFrame) -> tuple[pd.DataFrame, TfidfVectorizer]:
 
 
 # ============================================================
-# STEP 6 — ENCODE TARGETS
+# STEP 6  ENCODE TARGETS
 # ============================================================
 
 def encode_targets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -189,26 +189,26 @@ def preprocess(df: pd.DataFrame, use_tfidf: bool = False):
     """
     df = df.copy()
 
-    # Step 1 — drop unused columns
+    # Step 1  drop unused columns
     df = drop_unused_columns(df)
 
-    # Step 2 — TF-IDF or drop text columns
+    # Step 2  TF-IDF or drop text columns
     tfidf_vectorizer = None
     if use_tfidf:
         df, tfidf_vectorizer = encode_text_tfidf(df)
     else:
         df = df.drop(columns=[c for c in TEXT_COLS if c in df.columns])
 
-    # Step 3 — ensure categoricals are strings
+    # Step 3  ensure categoricals are strings
     df = prepare_categoricals(df)
 
-    # Step 4 — cast binary columns to int
+    # Step 4  cast binary columns to int
     df = encode_binary(df)
 
-    # Step 5 — multi-hot encode tags
+    # Step 5  multi-hot encode tags
     df = encode_tags(df)
 
-    # Step 6 — encode targets
+    # Step 6  encode targets
     df, target_encoders = encode_targets(df)
 
     # Split features and targets

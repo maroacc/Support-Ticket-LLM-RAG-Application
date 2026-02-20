@@ -56,7 +56,7 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series,
         verbose=50
     )
 
-    print(f"\n Category model trained — best iteration: {model.best_iteration}")
+    print(f"\n Category model trained  best iteration: {model.best_iteration}")
     return model
 
 
@@ -123,27 +123,27 @@ def build_metrics(test_metrics, train_metrics):
 
 if __name__ == "__main__":
 
-    # 1 — load raw data
+    # 1  load raw data
     df = load_data(DATA_PATH)
 
-    # 2 — preprocess
+    # 2  preprocess
     X, y, feature_encoders, target_encoders = preprocess(df, use_tfidf=USE_TFIDF)
     feature_encoders["has_subcategory_model"] = False
 
-    # 3 — split
+    # 3  split
     y_cat = y["category"]
     X_train, X_val, X_test, y_cat_train, y_cat_val, y_cat_test = split_data(X, y_cat)
 
-    # 4 — train
+    # 4  train
     model = train_model(X_train, y_cat_train, X_val, y_cat_val)
 
-    # 5 — evaluate
+    # 5  evaluate
     test_metrics  = evaluate_model(model, X_test,  y_cat_test,
                                    target_encoders, target_col="category", split="test")
     train_metrics = evaluate_model(model, X_train, y_cat_train,
                                    target_encoders, target_col="category", split="train")
 
-    # 6 — confusion matrices
+    # 6  confusion matrices
     plots_dir = MODELS_DIR / "latest_plots"
     for X_split, y_split, split in [(X_test, y_cat_test, "test"),
                                      (X_train, y_cat_train, "train")]:
@@ -151,23 +151,23 @@ if __name__ == "__main__":
         plot_confusion_matrix(y_split, y_pred, target_encoders,
                               target_col="category", split=split, save_dir=plots_dir)
 
-    # 7 — feature importance
+    # 7  feature importance
     importance = model.feature_importances_
     feat_imp   = sorted(zip(X_train.columns, importance),
                         key=lambda x: x[1], reverse=True)
     print(f"\n{'='*60}")
-    print(f"  Category model — Top 30 features by importance")
+    print(f"  Category model  Top 30 features by importance")
     print(f"{'='*60}")
     for name, score in feat_imp[:30]:
         print(f"  {score:.4f}  {'#' * int(score * 200)}  {name}")
     zero_count = sum(1 for _, s in feat_imp if s == 0)
     print(f"\n  Features with zero importance: {zero_count}/{len(feat_imp)}")
 
-    # 8 — save artifacts
+    # 8  save artifacts
     version_dir = MODELS_DIR / "latest"
     save_artifacts(model, feature_encoders, target_encoders, version_dir)
 
-    # 9 — log to MLflow and register
+    # 9  log to MLflow and register
     params  = build_params(model, X_train, X_val, X_test, X, y_cat)
     metrics = build_metrics(test_metrics, train_metrics)
 
