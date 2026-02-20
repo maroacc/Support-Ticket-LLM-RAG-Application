@@ -108,6 +108,35 @@ class TicketRequest(BaseModel):
     tags: list[str]
 
 
+class RAGRequest(BaseModel):
+    """
+    Fields needed by the RAG pipeline.
+    Call /predict first to get the category, then include it here.
+    """
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "subject": "Request: Add bulk operation support to CloudBackup Enterprise",
+                "description": "We would like to request a feature for CloudBackup Enterprise that allows bulk operations. Currently, we have to process items one by one, which is time-consuming. Having bulk support would greatly improve our workflow efficiency.",
+                "error_logs": "",
+                "product": "CloudBackup Enterprise",
+                "product_version": "4.5.10",
+                "product_module": "encryption_layer",
+                "category": "Feature Request",
+            }
+        }
+    }
+
+    subject:         str
+    description:     str
+    error_logs:      str
+    product:         str
+    product_version: str
+    product_module:  str
+    category:        str
+
+
 class PredictionResponse(BaseModel):
     category: str
 
@@ -145,7 +174,7 @@ class RAGResult(BaseModel):
 
 
 class RAGResponse(BaseModel):
-    category: str | None = None   # predicted category used to improve matching
+    category: str
     results:  list[RAGResult]
 
 
@@ -193,14 +222,12 @@ def predict_ticket(ticket: TicketRequest):
 
 
 @app.post("/rag", response_model=RAGResponse)
-def rag(ticket: TicketRequest, top_k: int = 5):
+def rag(ticket: RAGRequest, top_k: int = 5):
     """
     Find similar historical tickets and return their solutions.
 
-    Internally runs /predict first to get the category, then passes it
-    to the retrieval system so the knowledge graph matching can use it
-    as an additional signal. The predicted category is also returned in
-    the response so callers know what was used.
+    Expects the category predicted by /predict to be included in the request body.
+    The category is passed to the retrieval system as an additional matching signal.
 
     `top_k` (query parameter, default 5) controls how many results to return.
     """
@@ -211,15 +238,6 @@ def rag(ticket: TicketRequest, top_k: int = 5):
         )
 
     ticket_dict = ticket.model_dump()
-
-    # Predict category and inject it so the knowledge graph matching can use it
-    category = None
-    try:
-        prediction = predict(ticket_dict)
-        category = prediction["category"]
-        ticket_dict["category"] = category
-    except Exception:
-        pass  # proceed without category if the classifier isn't available
 
     try:
         raw_results = solution_finder.find_solutions(ticket_dict, top_k=top_k)
@@ -246,7 +264,7 @@ def rag(ticket: TicketRequest, top_k: int = 5):
         for r in raw_results
     ]
 
-    return RAGResponse(category=category, results=results)
+    return RAGResponse(category=ticket.category, results=results)
 
 
 @app.post("/train", response_model=TrainResponse)

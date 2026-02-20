@@ -6,48 +6,33 @@ An end-to-end system that classifies incoming support tickets and retrieves simi
 
 ## Table of Contents
 
-1. [Setup and Installation](#setup-and-installation)
-2. [Running the System](#running-the-system)
+1. [Running the System (Docker)](#running-the-system-docker)
+2. [Running the System (Local)](#running-the-system-local)
 3. [API Documentation](#api-documentation)
 4. [Reproducing Training and Evaluation](#reproducing-training-and-evaluation)
 5. [Key Design Decisions and Trade-offs](#key-design-decisions-and-trade-offs)
 
 
-## Setup and Installation
+## Running the System (Docker)
 
-**Requirements**: Python 3.10+
+Docker is the recommended way to run the system. It requires [Docker Desktop](https://www.docker.com/products/docker-desktop/). On Windows, use the WSL2 backend (default on Windows 11).
 
-```bash
-# Clone the repo and create a virtual environment
-python -m venv .venv
-
-# Activate it
-# Windows:
-.venv\Scripts\activate
-# Mac/Linux:
-source .venv/bin/activate
-
-# Install dependencies
-pip install fastapi uvicorn xgboost catboost scikit-learn pandas numpy \
-            sentence-transformers transformers torch mlflow joblib pydantic
-```
+All commands must be run from the **project root** (the folder that contains `Dockerfile` and `src/`).
 
 **Place the dataset** at:
 ```
 data/support_tickets.json
 ```
 
-
-
-## Running the System
-
-Follow these steps in order the first time. After the initial setup, only step 4 is needed to start the API.
-
 ### Step 1 : Build RAG artifacts
 
-Pre-compute the ticket embeddings and knowledge graph used by the retrieval system. This only needs to be run once (or when the dataset changes).
+Pre-compute the ticket embeddings and knowledge graph used by the retrieval system. This only needs to be run once (or when the dataset changes). Requires Python 3.10+ and the dependencies below installed locally.
 
 ```bash
+# Install dependencies
+pip install fastapi uvicorn xgboost catboost scikit-learn pandas numpy \
+            sentence-transformers transformers torch mlflow joblib pydantic
+
 # Build the embedding matrix (~160MB, stored in data/rag/embeddings.npy)
 python src/rag/build_embeddings.py
 
@@ -64,9 +49,7 @@ python src/rag/build_resolution_stats.py
 python src/xgboost/train.py
 ```
 
-This trains only the **category** classifier (see [why below](#on-subcategory-prediction)). Training takes a few minutes on CPU. Artifacts are saved to `models/xgboost/latest/` and logged to MLflow.
-
-> **Note on retraining**: this implementation trains from scratch on the full dataset every time. In production you would not do this : you would fine-tune the existing model on new data only, or use a sliding window, to avoid unnecessary compute and training time.
+This trains only the **category** classifier. Training takes a few minutes on CPU. Artifacts are saved to `models/xgboost/latest/` and logged to MLflow.
 
 ### Step 3 : Register the model as production
 
@@ -76,28 +59,11 @@ python -m src.xgboost.register_production
 
 This sets the `production` alias in the MLflow registry. The API loads whichever model carries this alias at startup.
 
-### Step 4 : Start the API
-
-**Option A : run locally (uvicorn):**
-```bash
-python -m uvicorn src.api.app:app --port 8000
-```
-
-**Option B : run containerized (Docker):**
-
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/). On Windows, use the WSL2 backend (default on Windows 11).
-
-All commands must be run from the **project root** (the folder that contains `Dockerfile` and `src/`), since the volume paths and the build context are relative to that directory.
+### Step 4 : Build and run the container
 
 ```bash
 # Build the image (once, or after code changes)
 docker build -t ticket-classifier .
-```
-
-Before starting the container for the first time (or after retraining), register the production model:
-
-```bash
-python -m src.xgboost.register_production
 ```
 
 Mac / Linux:
@@ -144,7 +110,17 @@ Volume breakdown:
 | `models/xgboost/latest/` | Local model copy written by `train.py` |
 | `hf_cache` | sentence-transformers model cache : downloaded once, reused across restarts |
 
-The API is now available at http://127.0.0.1:8000. Interactive docs at http://127.0.0.1:8000/docs.
+The API is now available at http://127.0.0.1:8000. Interactive docs at http://localhost:8000/docs.
+
+
+
+## Running the System (Local)
+
+To run without Docker, follow steps 1–3 above, then start the API directly:
+
+```bash
+python -m uvicorn src.api.app:app --port 8000
+```
 
 
 
@@ -191,17 +167,16 @@ Example :
 
 ### POST /rag
 
-Finds similar historical tickets that have been solved and returns their inforamtion and 
-solutions. 
-Internally runs the classifier first to get the predicted category and passes it to the retrieval system as an additional matching signal.
+Finds similar historical tickets that have been solved and returns their information and solutions.
+
+Call `/predict` first to get the category, then pass it along with the ticket fields in this request. The category is used as an additional matching signal by the retrieval system.
 
 #### Request :
 
 _Parameters :_
 - top_k (optional) : number of results to return. Default 5
 
-_Required fields :_ subject, description, error_logs, product, product_version 
-, product_module, priority, severity, customer_tier, channel, environment
+_Required fields :_ subject, description, error_logs, product, product_version, product_module, category
 
 Example
 ```json
@@ -211,7 +186,8 @@ Example
   "error_logs": "ERROR_TIMEOUT_429: Connection timeout after 30s",
   "product": "DataSync Pro",
   "product_version": "3.2.1",
-  "product_module": "sync_engine"
+  "product_module": "sync_engine",
+  "category": "Technical Issue"
 }
 ```
 
@@ -241,7 +217,7 @@ Example
 }
 ```
 
-`category` is the classifier's prediction used to improve the retrieval ranking.
+`category` is echoed back from the request to confirm what was used for matching.
 
 Results are sorted by final_score (60% semantic similarity + 40% knowledge graph field overlap).
 
