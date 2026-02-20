@@ -1,15 +1,16 @@
 import json
 
-from src.rag.config import KNOWLEDGE_GRAPH_PATH, SIMILARITY_WEIGHT, MATCH_WEIGHT
+from src.rag.config import KNOWLEDGE_GRAPH_PATH, RESOLUTION_STATS_PATH, SIMILARITY_WEIGHT, MATCH_WEIGHT
 from src.rag.embedding_store import load as load_embeddings, find_similar
 from src.rag.build_knowledge_graph import extract_error_codes
 
 
 # ============================================================
-# LOAD KNOWLEDGE GRAPH
+# LOAD KNOWLEDGE GRAPH + RESOLUTION STATS
 # ============================================================
 
-_knowledge_graph = None   # dict: ticket_id -> knowledge graph entry
+_knowledge_graph  = None   # dict: ticket_id -> knowledge graph entry
+_resolution_stats = None   # dict: kb_article_id -> {times_used, times_helpful, success_rate}
 
 
 def load():
@@ -17,10 +18,11 @@ def load():
     Load everything needed for the solution finder:
       1. Embeddings + ticket data (via embedding_store)
       2. Knowledge graph (ticket_id -> product, category, error_codes, etc.)
+      3. Resolution stats (kb_article_id -> success_rate)
 
     Call once before using find_solutions().
     """
-    global _knowledge_graph
+    global _knowledge_graph, _resolution_stats
 
     # Load embeddings and ticket data
     load_embeddings()
@@ -30,6 +32,49 @@ def load():
         graph_list = json.load(f)
     _knowledge_graph = {entry["ticket_id"]: entry for entry in graph_list}
     print(f"Loaded knowledge graph: {len(_knowledge_graph)} entries")
+
+    # Load resolution stats (KB article success rates)
+    with open(RESOLUTION_STATS_PATH) as f:
+        _resolution_stats = json.load(f)
+    print(f"Loaded resolution stats: {len(_resolution_stats)} KB articles")
+
+
+# ============================================================
+# EXTRACT STRUCTURED SOLUTION FROM A SIMILAR TICKET
+# ============================================================
+
+def _extract_solution(ticket_data: dict) -> dict:
+    """
+    Pull solution-relevant fields out of a historical ticket and enrich
+    the KB articles with their success rates from resolution_stats.
+
+    Returns:
+        {
+          "resolution":          str   — what was done to fix the issue
+          "resolution_code":     str   — e.g. "CONFIG_CHANGE"
+          "resolution_template": str   — e.g. "TEMPLATE-DB-TIMEOUT"
+          "resolution_helpful":  bool  — whether the resolution actually worked
+          "kb_articles":         list  — helpful KB articles sorted by success_rate,
+                                         each: {"article": "KB-887", "success_rate": 0.85}
+        }
+    """
+    kb_articles_raw = ticket_data.get("kb_articles_helpful") or []
+    kb_articles = []
+    for article in kb_articles_raw:
+        stats = _resolution_stats.get(article, {})
+        kb_articles.append({
+            "article":      article,
+            "success_rate": stats.get("success_rate"),
+        })
+    kb_articles.sort(key=lambda x: (x["success_rate"] or 0), reverse=True)
+
+    return {
+        "resolution":          ticket_data.get("resolution", ""),
+        "resolution_code":     ticket_data.get("resolution_code"),
+        "resolution_template": ticket_data.get("resolution_template_used"),
+        "resolution_helpful":  ticket_data.get("resolution_helpful"),
+        "kb_articles":         kb_articles,
+    }
 
 
 # ============================================================
@@ -80,8 +125,8 @@ def _compare_fields(new_ticket: dict, graph_entry: dict) -> dict:
 
 def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
     """
-    Full RAG pipeline: find similar tickets, then enrich each result
-    with knowledge graph comparison.
+    Full RAG pipeline: find similar tickets, enrich with knowledge graph
+    comparison, and extract structured solutions (resolution text + KB articles).
 
     Args:
         ticket: A new incoming ticket dict. Should have at minimum:
@@ -94,7 +139,6 @@ def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
                   - product_version : e.g. "3.2.1"
                   - product_module  : e.g. "sync_engine"
                   - category        : predicted by classifier (or "")
-                  - subcategory     : predicted by classifier (or "")
         top_k:  Number of results to return.
 
     Returns:
@@ -105,6 +149,9 @@ def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
           - final_score       : weighted combination of both signals
           - ticket_data       : full ticket dict with all fields
           - graph_comparison  : which fields match the new ticket
+          - solution          : structured solution extracted from the similar ticket:
+                                  resolution, resolution_code, resolution_template,
+                                  resolution_helpful, kb_articles (with success_rate)
     """
     if _knowledge_graph is None:
         raise RuntimeError("Call load() before find_solutions()")
@@ -132,6 +179,7 @@ def find_solutions(ticket: dict, top_k: int = 10) -> list[dict]:
             "final_score":      round(final_score, 4),
             "ticket_data":      result["ticket_data"],
             "graph_comparison": comparison,
+            "solution":         _extract_solution(result["ticket_data"]),
         })
 
     # Step 4 — Re-sort by final_score (not just similarity)
@@ -181,8 +229,15 @@ if __name__ == "__main__":
             symbol = "Y" if matched else "N"
             match_symbols.append(f"{field}={symbol}")
 
+        sol = r["solution"]
+        kb_str = ", ".join(
+            f"{kb['article']}({kb['success_rate']:.0%})" for kb in sol["kb_articles"]
+        ) or "none"
+
         print(f"#{i}  Final: {r['final_score']}  Similarity: {r['similarity_score']}  Match: {comp['match_ratio']*100:.0f}%  ID: {r['ticket_id']}")
-        print(f"    Fields:  {', '.join(match_symbols)}")
-        print(f"    Subject: {t['subject']}")
-        print(f"    Resolution: {str(t['resolution'])[:100]}...")
+        print(f"    Fields:      {', '.join(match_symbols)}")
+        print(f"    Subject:     {t['subject']}")
+        print(f"    Resolution:  {str(sol['resolution'])[:100]}...")
+        print(f"    Code:        {sol['resolution_code']}  |  Template: {sol['resolution_template']}")
+        print(f"    KB articles: {kb_str}")
         print()

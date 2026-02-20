@@ -6,6 +6,7 @@ Supports both XGBoost and CatBoost models. The model type is
 auto-detected from the saved feature_encoders (CatBoost models
 have a "cat_feature_names" key).
 """
+import re
 import joblib
 import mlflow
 import pandas as pd
@@ -13,7 +14,7 @@ import pandas as pd
 from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from src.mlflow_config import MLFLOW_TRACKING_URI
+from src.mlflow_config import MLFLOW_TRACKING_URI, PROJECT_ROOT
 from src.xgboost.preprocessing import (
     ONE_HOT_COLS, LABEL_ENCODE_COLS, NUMERIC_COLS, BINARY_COLS, TEXT_COLS
 )
@@ -57,8 +58,23 @@ def load_production_model(model_name: str = "xgboost-ticket-classifier"):
     print(f"Loading production model: {model_name} version {version}")
     print(f"  MLflow run ID: {run_id}")
 
-    # Download the artifacts to a local directory
-    artifact_dir = Path(client.download_artifacts(run_id, "model"))
+    # Resolve artifact directory — works both locally and inside Docker.
+    # MLflow stores an absolute OS-specific URI (e.g. file:C:/Users/...),
+    # so we extract the relative mlruns/... portion and re-anchor it to
+    # PROJECT_ROOT (which is /app inside the container).
+    run = client.get_run(run_id)
+    uri = run.info.artifact_uri.replace("\\", "/")
+    uri = re.sub(r"^file:(?://+)?", "", uri)   # strip file:// or file:
+    uri = re.sub(r"^/?[A-Za-z]:", "", uri)      # strip Windows drive letter
+    match = re.search(r"(mlruns/.+)", uri)
+    if match:
+        local_path = PROJECT_ROOT / match.group(1) / "model"
+        if local_path.exists():
+            artifact_dir = local_path
+        else:
+            artifact_dir = Path(client.download_artifacts(run_id, "model"))
+    else:
+        artifact_dir = Path(client.download_artifacts(run_id, "model"))
 
     # Load the individual joblib files
     _category_model   = joblib.load(artifact_dir / "category_model.joblib")
